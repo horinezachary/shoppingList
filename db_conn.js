@@ -3,7 +3,8 @@ var mysql = require('mysql');
 var con = mysql.createConnection({
   host: "192.168.1.15",
   user: "app",
-  password: "8eKta0TjuU6Pijfd"
+  password: "8eKta0TjuU6Pijfd",
+  database: "loris_kitchen"
 });
 
 con.connect(function(err) {
