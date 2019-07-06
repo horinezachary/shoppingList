@@ -1,23 +1,25 @@
 {
-   "name": "shoppingList",
-   "version": "1.0.0",
-   "description": "Server for shoppingList",
-   "main": "server.js",
-   "scripts": {
-      "test": "echo \"Error: no test specified\" && exit 1",
-      "start": "node server.js"
-   },
-   "author": "Zachary Horine",
-   "license": "ISC",
-   "repository": {
-      "type": "git",
-      "url": "git://github.com/username/repository.git"
-   },
-   "dependencies": {
-      "express": "^4.17.1",
-      "express-handlebars": "^3.1.0",
-      "mysql": "^2.17.1",
-      "path": "^0.12.7",
-      "body-parser": "^1.19.0"
-   }
+  "name": "shoppingList",
+  "version": "1.0.0",
+  "description": "Server for shoppingList",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "Zachary Horine",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/username/repository.git"
+  },
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "client-sessions": "^0.8.0",
+    "express": "^4.17.1",
+    "express-handlebars": "^3.1.0",
+    "jquery": "^3.4.1",
+    "mysql": "^2.17.1",
+    "path": "^0.12.7"
+  }
 }
