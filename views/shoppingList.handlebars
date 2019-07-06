@@ -1,7 +1,10 @@
 <div class="list" id="list_{{listItem.0.list_id}}">
-   <h3 class="list_name">{{listItem.0.list_name}}</h3>
-   <h4 class="list_owner">{{listItem.0.owner}}</h4>
-   <h5 class="list-date">{{listItem.0.date_created}}</h5>
+   <div class="listHeader">
+      <h3 class="list-name">{{listItem.0.list_name}}</h3>
+      <h4 class="list-owner"> - <a href="/u/{{listItem.0.owner}}">{{listItem.0.owner}}</a></h4>
+      <!--<h5 class="list-date">{{listItem.0.date_created}}</h5>-->
+      <button class="list-clearButton" onClick=clearCheckedItems('list_{{listItem.0.list_id}}')>Clear</button>
+   </div>
    {{#each listItem}}
       {{> listLine}}
    {{/each}}

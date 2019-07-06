@@ -16,6 +16,7 @@ var path = require('path');
 var express = require('express');
 var exphbs = require('express-handlebars');
 var bodyParser = require('body-parser');
+var session = require('client-sessions');
 
 var app = express();
 var port = process.env.PORT || 3000;
@@ -24,9 +25,15 @@ app.set('view engine', 'handlebars');
 
 app.use(express.static('public'));
 app.use(bodyParser.json());
+app.use(session({
+  cookieName: 'session',
+  secret: 'dQ46q4AlvniGACyALReI',
+  duration: 24 * 60 * 60 * 1000, //1 day
+  activeDuration: 24 * 60 * 60 * 1000,
+}));
 
 app.get('/', function (req, res, next) {
-   let query = "SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item"
+   let query = `SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item`;
    con.query(query, function (err, result) {
       if (err) res.redirect('/');
       console.log("Result: " + result);
@@ -34,6 +41,78 @@ app.get('/', function (req, res, next) {
 
          listItem: result
       });
+   });
+});
+
+app.get('/l/:list', function (req, res, next) {
+   var list = req.params.list;
+   if (list == "index.js") {
+      res.status(200).sendFile(__dirname + '/public/index.js');
+   } else if (list == "style.css") {
+      res.status(200).sendFile(__dirname + '/public/style.css');
+   } else {
+      console.log(req.params.user);
+      con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
+         function (err, singlelistData) {
+
+      con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${mysql.escape(req.query.user)}`,
+         function (err, listData) {
+      console.log("Result: " + listData);
+         res.status(200).render('shoppingList', {
+            listItem: singlelistData,
+            headerlists: listData
+         });
+      });
+   });
+   }
+});
+
+app.get('/u/:user', function (req, res, next) {
+   var user = mysql.escape(req.params.user);
+   if (user == "index.js") {
+      res.status(200).sendFile(__dirname + '/public/index.js');
+   } else if (user == "style.css") {
+      res.status(200).sendFile(__dirname + '/public/style.css');
+   } else {
+      console.log(req.params.user);
+      let userData = con.query(`SELECT * FROM User WHERE User.uname = ${user}`,
+         function (err, userData) {
+      let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user}`,
+         function (err, listData) {
+         res.status(200).render('user', {
+            user: userData,
+            headerlists: listData
+         });
+      });
+   });
+   }
+});
+
+app.get('/login', function (req, res, next) {
+   res.render('login.handlebars', {
+      title: 'Login',
+      layout: 'bare',
+      error: 'Invalid email or password.'
+   });
+});
+
+app.post('/login', function(req, res) {
+   User.findOne({ email: req.body.email }, function(err, user) {
+      if (!user) {
+         res.render('login.handlebars', { error: 'Invalid email or password.' });
+         } else {
+            if (req.body.password === user.password) {
+               // sets a cookie with the user's info
+               req.session.user = user;
+               res.redirect('/');
+         } else {
+            res.render('login.handlebars', {
+               title: 'Login',
+               layout: 'bare',
+               error: 'Invalid email or password.'
+            });
+         }
+      }
    });
 });
 

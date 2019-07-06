@@ -1,95 +1,20 @@
-body {
-   font-family: Roboto, Helvetica, sans-serif;
-   margin: 0;
-   min-width: 575px;
-   background-color: #826754;
+footer {
+   background: gray;
 }
 
-a {
-   text-decoration: none;
+footer a {
+   color: white;
 }
 
-
-.site-title {
-   margin: 0;
-   padding: 10px 20px;
-   font-size: 30px;
-   font-weight: 100;
-   background-color: #13293D;
-   color: #fff;
+body{
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* Avoid the IE 10-11 `min-height` bug. */
 }
-
-.navbar {
-   background-color: #508CA4;
-   font-size: 18px;
-   line-height: 22px;
+.page-header,
+.page-footer {
+  flex-shrink: 0; /* Prevent Chrome, Opera, and Safari from letting these items shrink to smaller than their content's default minimum size. */
 }
-
-.navlist {
-   margin: 0 0 0 20px;
-   padding: 0;
-}
-
-.navitem {
-   display: inline-block;
-}
-
-.navlink a {
-   color: #13293D;
-   padding: 8px 10px;
-   display: inline-block;
-}
-
-.navlink.active {
-  box-shadow: inset 0 -3px #3B1F2B;
-}
-
-a:hover, a:focus {
-   color: #3B1F2B;
-}
-
-a:focus {
-  outline: none;
-}
-
-.navbar-search {
-  float: right;
-  margin-right: 20px;
-  padding: 0;
-  line-height: 38px;
-}
-
-.navbar-search-input {
-  padding: 4px;
-  font-size: 16px;
-  background-color: #eee;
-  border: 1px solid #dadada;
-  border-radius: 2px;
-}
-
-.navbar-search-input:focus {
-  outline: none;
-  background-color: #fff;
-}
-
-.action-button.navbar-search-button {
-  margin-left: -5px;
-}
-
-.action-button {
-  margin-left: -5px;
-  font-size: 16px;
-  background: none;
-  border: none;
-  color: #13293D;
-  cursor: pointer;
-}
-
-.action-button:hover {
-  color: #3B1F2B;
-}
-
-.action-button:focus {
-  color: #3B1F2B;
-  outline: none;
+.content {
+  flex: 1 0 auto; /* Prevent Chrome, Opera, and Safari from letting these items shrink to smaller than their content's default minimum size. */
 }
