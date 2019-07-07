@@ -7,6 +7,7 @@ footer a {
 }
 
 body{
+   background: gray;
   display: flex;
   flex-direction: column;
   height: 100vh; /* Avoid the IE 10-11 `min-height` bug. */
@@ -16,5 +17,46 @@ body{
   flex-shrink: 0; /* Prevent Chrome, Opera, and Safari from letting these items shrink to smaller than their content's default minimum size. */
 }
 .content {
+   margin-top: 1rem;
+   margin-bottom: 1rem;
   flex: 1 0 auto; /* Prevent Chrome, Opera, and Safari from letting these items shrink to smaller than their content's default minimum size. */
+}
+
+.list {
+   margin: 0 auto;
+}
+
+.listItem-count {
+   display: inline-block;
+   text-decoration: inherit;
+   margin-bottom: 0rem;
+}
+
+.listItem-name {
+   display: inline-block;
+   text-decoration: inherit;
+   margin-bottom: 0rem;
+}
+
+.checked {
+   color: gray;
+   text-decoration-style: double;
+   text-decoration: line-through;
+
+}
+.list-name {
+   display: inline;
+}
+.list-owner {
+   display: inline;
+   font-size: 12px;
+}
+.list-clearButton {
+   float: right;
+   margin: 0rem;
+   margin-right: 10px;
+}
+
+.hidden {
+   display: none;
 }
