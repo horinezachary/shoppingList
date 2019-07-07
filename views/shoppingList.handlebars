@@ -16,7 +16,12 @@
                   <input type="text" class="form-control" name="count" placeholder="#">
                </div>
                <div class="input-group col-10">
-                  <input type="text" class="form-control" name="itemName" placeholder="Item">
+                  <input type="text" list="autofill" autocomplete="off" class="form-control" name="itemName" placeholder="Item">
+                  <datalist id="autofill">
+                     {{#each autofillItem}}
+                        <option>{{item_name}}</option>
+                     {{/each}}
+                  </datalist>
                   <div class="input-group-append">
                      <button type="submit" value="Submit" class="btn btn-md btn-outline-black m-0 px-3 py-2 z-depth-0" style="line-height:0;"><p class="fas fa-arrow-right m-0"></button>
                   </div>

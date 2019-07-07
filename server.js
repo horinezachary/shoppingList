@@ -55,15 +55,20 @@ app.get('/l/:list', function (req, res, next) {
       con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
          function (err, singlelistData) {
 
+      con.query(`SELECT * FROM Item`,
+         function (err, autofillData) {
+
       con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${mysql.escape(req.query.user)}`,
          function (err, listData) {
       console.log("Result: " + listData);
          res.status(200).render('shoppingList', {
+            autofillItem: autofillData,
             listItem: singlelistData,
             headerlists: listData
-         });
       });
-   });
+      });
+      });
+      });
    }
 });
 
