@@ -5,7 +5,9 @@ footer {
 footer a {
    color: white;
 }
-
+a {
+   color: inherit;
+}
 body{
    background: gray;
   display: flex;
@@ -32,7 +34,7 @@ body{
    margin-bottom: 0rem;
 }
 
-.listItem-name {
+.listItem-name, .listName, .listDate {
    display: inline-block;
    text-decoration: inherit;
    margin-bottom: 0rem;

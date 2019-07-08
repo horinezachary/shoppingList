@@ -24,6 +24,7 @@ app.engine('handlebars', exphbs({ defaultLayout: 'main' }));
 app.set('view engine', 'handlebars');
 
 app.use(express.static('public'));
+app.use(bodyParser.urlencoded({extended : true}));
 app.use(bodyParser.json());
 app.use(session({
   cookieName: 'session',
@@ -33,18 +34,24 @@ app.use(session({
 }));
 
 app.get('/', function (req, res, next) {
-   let query = `SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item`;
-   con.query(query, function (err, result) {
-      if (err) res.redirect('/');
-      console.log("Result: " + result);
-      res.status(200).render('shoppingList', {
-
-         listItem: result
+   //var user = mysql.escape(req.params.user);
+   var user = mysql.escape("goofyone");
+   console.log(req.params.user);
+   let userData = con.query(`SELECT * FROM User WHERE User.uname = ${user}`,
+      function (err, userData) {
+   let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user}`,
+      function (err, listData) {
+      res.status(200).render('home', {
+         user: userData,
+         headerlists: listData
       });
+   });
    });
 });
 
 app.get('/l/:list', function (req, res, next) {
+   //var user = mysql.escape(req.params.user);
+   var user = mysql.escape("goofyone");
    var list = req.params.list;
    if (list == "index.js") {
       res.status(200).sendFile(__dirname + '/public/index.js');
@@ -58,7 +65,7 @@ app.get('/l/:list', function (req, res, next) {
       con.query(`SELECT * FROM Item`,
          function (err, autofillData) {
 
-      con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${mysql.escape(req.query.user)}`,
+      con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user}`,
          function (err, listData) {
       console.log("Result: " + listData);
          res.status(200).render('shoppingList', {
@@ -73,7 +80,8 @@ app.get('/l/:list', function (req, res, next) {
 });
 
 app.get('/u/:user', function (req, res, next) {
-   var user = mysql.escape(req.params.user);
+   //var user = mysql.escape(req.params.user);
+   var user = mysql.escape("goofyone");
    if (user == "index.js") {
       res.status(200).sendFile(__dirname + '/public/index.js');
    } else if (user == "style.css") {
@@ -99,6 +107,15 @@ app.get('/login', function (req, res, next) {
       layout: 'bare',
       error: 'Invalid email or password.'
    });
+});
+
+app.post('/l/addItem/:list', function (req, res) {
+   var list = req.params.list;
+   var icount = req.body.icount;
+   var item = req.body.itemName;
+   console.log(list+", "+icount+", "+item);
+   con.query(`CALL addShoppingItem(${list},${icount},'${item.toString()}');`);
+   res.redirect('/l/'+list);
 });
 
 app.post('/login', function(req, res) {

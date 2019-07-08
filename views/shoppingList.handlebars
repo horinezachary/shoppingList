@@ -10,13 +10,13 @@
          {{> listLine}}
       {{/each}}
       <li class="list-group-item listItem" id="listItem-add_{{listItem.0.list_id}}" style="background:#{{listItem.0.listColor}};">
-         <form method="post">
+         <form action="addItem/{{listItem.0.list_id}}" method="post">
             <div class="form-row">
                <div class="col-2">
-                  <input type="text" class="form-control" name="count" placeholder="#">
+                  <input type="number" class="form-control" name="icount" placeholder="#">
                </div>
                <div class="input-group col-10">
-                  <input type="text" list="autofill" autocomplete="off" class="form-control" name="itemName" placeholder="Item">
+                  <input type="text" list="autofill" autocomplete="off" class="form-control" name="itemName" placeholder="Item" required>
                   <datalist id="autofill">
                      {{#each autofillItem}}
                         <option>{{item_name}}</option>

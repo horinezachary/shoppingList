@@ -1,0 +1,10 @@
+<div class="card list" id="listHolder" style="width: 40rem;">
+   <div class="card-body listHeader">
+      <h3 class="font-weight-bold mb-0 user-name">{{user.0.fname}} {{user.0.lname}} - {{user.0.uname}}</h3>
+   </div>
+   <ul class="list-group list-group-flush" id="list-group">
+      {{#each headerlists}}
+         {{>userList}}
+      {{/each}}
+   </ul>
+</div>
