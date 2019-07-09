@@ -14,7 +14,6 @@ function checkDisabled(listId) {
    if (count > 0 && document.getElementById('clearButton').classList.contains('disabled')) {
       document.getElementById('clearButton').classList.toggle('disabled');
    }
-   console.log(count);
    if (count <= 0 && !document.getElementById('clearButton').classList.contains('disabled')) {
       document.getElementById('clearButton').classList.toggle('disabled');
    }
@@ -54,13 +53,11 @@ $('#deleteModal').on('show.bs.modal', function (event) {
    var id = button.data('id');
    var name = button.data('name');
    var modal = $(this);
-   console.log(name);
    modal.find('#listName').text(name);
    document.getElementById('yesButton').setAttribute( "onClick",'deleteList('+id+');');
 })
 
 function deleteList(listId) {
-   console.log(listId);
    fetch('/l/delList/', {
       method: 'POST',
       headers: {
