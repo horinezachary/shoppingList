@@ -58,9 +58,12 @@ app.get('/l/:list', function (req, res, next) {
    } else if (list == "style.css") {
       res.status(200).sendFile(__dirname + '/public/style.css');
    } else {
+      list = mysql.escape(list);
       console.log(req.params.user);
+      con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user} AND ShoppingList.list_id = ${list}`,
+         function (err, singleListData) {
       con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
-         function (err, singlelistData) {
+         function (err, listItemData) {
 
       con.query(`SELECT * FROM Item`,
          function (err, autofillData) {
@@ -69,9 +72,11 @@ app.get('/l/:list', function (req, res, next) {
          function (err, listData) {
       console.log("Result: " + listData);
          res.status(200).render('shoppingList', {
+            list: singleListData,
             autofillItem: autofillData,
-            listItem: singlelistData,
+            listItem: listItemData,
             headerlists: listData
+      });
       });
       });
       });
