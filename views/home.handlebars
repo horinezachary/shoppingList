@@ -7,8 +7,9 @@
          {{>userList}}
       {{/each}}
       <li class="list-group-item" id="list_add">
-         <button type="button" class="btn-lg btn-dark blue-gradient ml-2 float-right" onclick="window.location.href='/addList/'">Add List</button>
+         <button type="button" class="btn btn-dark blue-gradient ml-2 float-right" data-toggle="modal" data-target="#addListModal">Add List</button>
       </li>
    </ul>
    {{>deleteModal}}
+   {{>addListModal}}
 </div>

@@ -106,6 +106,16 @@ app.post('/l/delList/', function (req, res) {
    res.redirect('/');
 });
 
+app.post('/addList', function (req, res) {
+   //var user = mysql.escape(req.params.user);
+   var user = mysql.escape("goofyone");
+   var list = mysql.escape(req.body.listName);
+   var color = mysql.escape(req.body.color);
+   console.log(list+", "+color);
+   con.query(`INSERT INTO ShoppingList (list_name,owner,listColor) VALUES (${list.toString()},${user.toString()},${color.toString()});`);
+   res.redirect('/');
+});
+
 
 app.get('/u/:user', function (req, res, next) {
    //var user = mysql.escape(req.params.user);

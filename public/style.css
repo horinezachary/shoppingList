@@ -66,3 +66,77 @@ body{
 .float-right {
    float: right;
 }
+
+#color1 {
+   background-color: #e04331;
+}
+#color2 {
+   background-color: #c75f0a;
+}
+#color3 {
+   background-color: #d69620;
+}
+#color4 {
+   background-color: #12ad0c;
+}
+#color5 {
+   background-color: #4287f5;
+}
+#color6 {
+   background-color: #ad42f5;
+}
+
+.radio-buttons {
+   display: inline-block;
+}
+.container {
+  display: inline;
+  position: relative;
+  padding-left: 35px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  font-size: 22px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.container input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 25px;
+  width: 25px;
+  border-radius: 50%;
+}
+
+.container:hover input ~ .checkmark {
+   border-width: medium;
+   border-style: solid;
+   border-color: #555;
+}
+
+/* Show the indicator (dot/circle) when checked */
+.container input:checked ~ .checkmark {
+  border-width: medium;
+  border-style: solid;
+  border-color: black;
+}
+
+/* Style the indicator (dot/circle) */
+.container .checkmark:after {
+  top: 8px;
+  left: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: white;
