@@ -118,6 +118,20 @@ app.post('/l/addItem/:list', function (req, res) {
    res.redirect('/l/'+list);
 });
 
+app.post('/l/delItem/:list', function (req, res) {
+   var list = req.params.list;
+   var items = req.body.items;
+   console.log(items.length);
+   var query = `DELETE FROM ShoppingList_Item WHERE sItem_id = ${items[0]}`;
+   for (i = 1; i < items.length; i++) {
+      query += ` OR sItem_id = ${items[i]}`;
+   }
+   console.log(query+`;`);
+//   console.log(list+", "+icount+", "+item);
+   con.query(query+`;`);
+   res.redirect('/l/'+list);
+});
+
 app.post('/login', function(req, res) {
    User.findOne({ email: req.body.email }, function(err, user) {
       if (!user) {
