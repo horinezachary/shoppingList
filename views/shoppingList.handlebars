@@ -3,7 +3,7 @@
       <h3 class="font-weight-bold mb-3 list-name">{{listItem.0.list_name}}</h3>
       <!--<h4 class="mb-0 list-owner"> - <a href="/u/{{listItem.0.owner}}">{{listItem.0.owner}}</a></h4>-->
       <!--<h5 class="list-date">{{listItem.0.date_created}}</h5>-->
-      <button type="button" class="btn btn-sm btn-outline-dark list-clearButton" onClick=deleteItems('{{listItem.0.list_id}}','list-group_{{listItem.0.list_id}}')>Clear</button>
+      <button type="button" id="clearButton" class="btn btn-sm btn-outline-dark list-clearButton disabled" onClick=deleteItems('{{listItem.0.list_id}}','list-group_{{listItem.0.list_id}}')>Clear</button>
    </div>
    <ul class="list-group list-group-flush" id="list-group_{{listItem.0.list_id}}">
       {{#each listItem}}
