@@ -79,6 +79,34 @@ app.get('/l/:list', function (req, res, next) {
    }
 });
 
+app.post('/l/addItem/:list', function (req, res) {
+   var list = req.params.list;
+   var icount = req.body.icount;
+   var item = req.body.itemName;
+   console.log(list+", "+icount+", "+item);
+   con.query(`CALL addShoppingItem(${list},${icount},'${item.toString()}');`);
+   res.redirect('/l/'+list);
+});
+
+app.post('/l/delItem/:list', function (req, res) {
+   var list = req.params.list;
+   var items = req.body.items;
+   var query = `DELETE FROM ShoppingList_Item WHERE sItem_id = ${items[0]}`;
+   for (i = 1; i < items.length; i++) {
+      query += ` OR sItem_id = ${items[i]}`;
+   }
+   con.query(query+`;`);
+   res.redirect('/l/'+list);
+});
+
+app.post('/l/delList/', function (req, res) {
+   var list = req.body.list;
+   console.log(list);
+   con.query(`DELETE FROM ShoppingList WHERE list_id = ${list};`);
+   res.redirect('/');
+});
+
+
 app.get('/u/:user', function (req, res, next) {
    //var user = mysql.escape(req.params.user);
    var user = mysql.escape("goofyone");
@@ -107,26 +135,6 @@ app.get('/login', function (req, res, next) {
       layout: 'bare',
       error: 'Invalid email or password.'
    });
-});
-
-app.post('/l/addItem/:list', function (req, res) {
-   var list = req.params.list;
-   var icount = req.body.icount;
-   var item = req.body.itemName;
-   console.log(list+", "+icount+", "+item);
-   con.query(`CALL addShoppingItem(${list},${icount},'${item.toString()}');`);
-   res.redirect('/l/'+list);
-});
-
-app.post('/l/delItem/:list', function (req, res) {
-   var list = req.params.list;
-   var items = req.body.items;
-   var query = `DELETE FROM ShoppingList_Item WHERE sItem_id = ${items[0]}`;
-   for (i = 1; i < items.length; i++) {
-      query += ` OR sItem_id = ${items[i]}`;
-   }
-   con.query(query+`;`);
-   res.redirect('/l/'+list);
 });
 
 app.post('/login', function(req, res) {

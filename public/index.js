@@ -48,3 +48,27 @@ function deleteItems(list,listId) {
     })
 });
 }
+
+$('#deleteModal').on('show.bs.modal', function (event) {
+   var button = $(event.relatedTarget);
+   var id = button.data('id');
+   var name = button.data('name');
+   var modal = $(this);
+   console.log(name);
+   modal.find('#listName').text(name);
+   document.getElementById('yesButton').setAttribute( "onClick",'deleteList('+id+');');
+})
+
+function deleteList(listId) {
+   console.log(listId);
+   fetch('/l/delList/', {
+      method: 'POST',
+      headers: {
+         'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+         list: listId
+      })
+   });
+   window.location.href='/';
+}

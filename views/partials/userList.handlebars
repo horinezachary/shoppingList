@@ -1,4 +1,6 @@
 <li class="list-group-item" id="list_{{list_id}}" style="background:#{{listColor}}">
    <p class="white-text listName"><a href="/l/{{list_id}}">{{list_name}}</a></p>
    <!--<p class="white-text listDate"> - {{date_created}}</p>-->
+   <button type="button" class="confirm-delete btn-sm btn-danger ml-2 float-right" data-toggle="modal" data-target="#deleteModal" data-id="{{list_id}}" data-name="{{list_name}}">Delete</button>
+   <button type="button" class="btn-sm btn-dark ml-2 float-right" onclick="window.location.href='/editList/{{list_id}}'">Edit</button>
 </li>
