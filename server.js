@@ -24,6 +24,7 @@ app.engine('handlebars', exphbs({ defaultLayout: 'main' }));
 app.set('view engine', 'handlebars');
 
 app.use(express.static('public'));
+app.use('/:url', express.static('public'));
 app.use(bodyParser.urlencoded({extended : true}));
 app.use(bodyParser.json());
 app.use(session({
@@ -53,35 +54,29 @@ app.get('/l/:list', function (req, res, next) {
    //var user = mysql.escape(req.params.user);
    var user = mysql.escape("goofyone");
    var list = req.params.list;
-   if (list == "index.js") {
-      res.status(200).sendFile(__dirname + '/public/index.js');
-   } else if (list == "style.css") {
-      res.status(200).sendFile(__dirname + '/public/style.css');
-   } else {
-      list = mysql.escape(list);
-      console.log(req.params.user);
-      con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user} AND ShoppingList.list_id = ${list}`,
-         function (err, singleListData) {
-      con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
-         function (err, listItemData) {
+   list = mysql.escape(list);
+   console.log(req.params.user);
+   con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user} AND ShoppingList.list_id = ${list}`,
+      function (err, singleListData) {
+   con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
+      function (err, listItemData) {
 
-      con.query(`SELECT * FROM Item`,
-         function (err, autofillData) {
+   con.query(`SELECT * FROM Item`,
+      function (err, autofillData) {
 
-      con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user}`,
-         function (err, listData) {
-      console.log("Result: " + listData);
-         res.status(200).render('shoppingList', {
-            list: singleListData,
-            autofillItem: autofillData,
-            listItem: listItemData,
-            headerlists: listData
-      });
-      });
-      });
-      });
-      });
-   }
+   con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user}`,
+      function (err, listData) {
+   console.log("Result: " + listData);
+      res.status(200).render('shoppingList', {
+         list: singleListData,
+         autofillItem: autofillData,
+         listItem: listItemData,
+         headerlists: listData
+   });
+   });
+   });
+   });
+   });
 });
 
 app.post('/l/addItem/:list', function (req, res) {
@@ -125,23 +120,17 @@ app.post('/addList', function (req, res) {
 app.get('/u/:user', function (req, res, next) {
    //var user = mysql.escape(req.params.user);
    var user = mysql.escape("goofyone");
-   if (user == "index.js") {
-      res.status(200).sendFile(__dirname + '/public/index.js');
-   } else if (user == "style.css") {
-      res.status(200).sendFile(__dirname + '/public/style.css');
-   } else {
-      console.log(req.params.user);
-      let userData = con.query(`SELECT * FROM User WHERE User.uname = ${user}`,
-         function (err, userData) {
-      let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user}`,
-         function (err, listData) {
-         res.status(200).render('user', {
-            user: userData,
-            headerlists: listData
-         });
+   console.log(req.params.user);
+   let userData = con.query(`SELECT * FROM User WHERE User.uname = ${user}`,
+      function (err, userData) {
+   let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user}`,
+      function (err, listData) {
+      res.status(200).render('user', {
+         user: userData,
+         headerlists: listData
       });
    });
-   }
+   });
 });
 
 app.get('/login', function (req, res, next) {
@@ -173,7 +162,7 @@ app.post('/login', function(req, res) {
 });
 
 app.get('*', function (req, res) {
-  res.status(404).render('404');
+  res.status(404).render('404.handlebars');
 });
 
 app.listen(port, function () {
