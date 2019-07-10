@@ -116,6 +116,17 @@ app.post('/:other?/addList', function (req, res) {
    res.redirect('/');
 });
 
+app.post('/:editList/:list', function (req, res) {
+   //var user = mysql.escape(req.params.user);
+   var user = mysql.escape("goofyone");
+   var listid = mysql.escape(req.params.list);
+   var list = mysql.escape(req.body.listName);
+   var color = mysql.escape(req.body.color);
+   console.log(listid+", "+list+", "+color);
+   con.query(`UPDATE ShoppingList SET list_name = ${list}, listColor = ${color} WHERE list_id = ${listid};`);
+   res.redirect('/');
+});
+
 
 app.get('/u/:user', function (req, res, next) {
    //var user = mysql.escape(req.params.user);

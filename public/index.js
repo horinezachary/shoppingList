@@ -48,6 +48,27 @@ function deleteItems(list,listId) {
 });
 }
 
+$('#editModal').on('show.bs.modal', function (event) {
+   var button = $(event.relatedTarget);
+   var id = button.data('id');
+   var name = button.data('name');
+   var color = button.data('listcolor');
+   var modal = $(this);
+   var colorbuttons = document.getElementsByClassName('editRadio');
+   for (i = 0; i < colorbuttons.length; i++) {
+      console.log(colorbuttons[i].value);
+      if (colorbuttons[i].value == color) {
+         colorbuttons[i].setAttribute("checked", "checked");
+         console.log("found it!");
+      }
+   }
+   modal.find('#modalTitle').text("Edit List: "+name);
+   document.getElementById('nameInput').setAttribute( "value", name);
+   document.getElementById('editForm').setAttribute( "action",'editList/'+id);
+})
+
+
+
 $('#deleteModal').on('show.bs.modal', function (event) {
    var button = $(event.relatedTarget);
    var id = button.data('id');
