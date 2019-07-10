@@ -67,6 +67,10 @@ body{
    float: right;
 }
 
+.lh-0 {
+   line-height: 0;
+}
+
 #color1 {
    background-color: #e04331;
 }

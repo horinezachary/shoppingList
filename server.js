@@ -106,7 +106,7 @@ app.post('/l/delList/', function (req, res) {
    res.redirect('/');
 });
 
-app.post('/addList', function (req, res) {
+app.post('/:other?/addList', function (req, res) {
    //var user = mysql.escape(req.params.user);
    var user = mysql.escape("goofyone");
    var list = mysql.escape(req.body.listName);
