@@ -127,7 +127,7 @@ body{
 
 /* Show the indicator (dot/circle) when checked */
 .container input:checked ~ .checkmark {
-  border-width: medium;
+  border-width: .4rem;
   border-style: solid;
   border-color: black;
 }
