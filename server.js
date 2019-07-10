@@ -50,6 +50,46 @@ app.get('/', function (req, res, next) {
    });
 });
 
+app.post('/login', function(req, res) {
+   User.findOne({ email: req.body.email }, function(err, user) {
+      if (!user) {
+         res.render('login.handlebars', { error: 'Invalid email or password.' });
+         } else {
+            if (req.body.password === user.password) {
+               // sets a cookie with the user's info
+               req.session.user = user;
+               res.redirect('/');
+         } else {
+            res.render('login.handlebars', {
+               title: 'Login',
+               layout: 'bare',
+               error: 'Invalid email or password.'
+            });
+         }
+      }
+   });
+});
+
+app.post('/register', function(req, res) {
+   
+});
+
+app.post('/passwordReset', function(req, res) {
+   var email = mysql.escape(req.body.email);
+   con.query(`SELECT * FROM User WHERE email = ${email}`,
+      function (err, uEmail) {
+         if (uEmail.length == 0) {
+            //do nothing
+            console.log('no match!');
+            res.redirect('/login');
+         } else {
+            //send email
+            console.log("email sent to"+email);
+            res.redirect('/login');
+         }
+   });
+});
+
 app.get('/l/:list', function (req, res, next) {
    //var user = mysql.escape(req.params.user);
    var user = mysql.escape("goofyone");
@@ -148,27 +188,23 @@ app.get('/login', function (req, res, next) {
    res.render('login.handlebars', {
       title: 'Login',
       layout: 'bare',
-      error: 'Invalid email or password.'
+      error: "Test"
    });
 });
 
-app.post('/login', function(req, res) {
-   User.findOne({ email: req.body.email }, function(err, user) {
-      if (!user) {
-         res.render('login.handlebars', { error: 'Invalid email or password.' });
-         } else {
-            if (req.body.password === user.password) {
-               // sets a cookie with the user's info
-               req.session.user = user;
-               res.redirect('/');
-         } else {
-            res.render('login.handlebars', {
-               title: 'Login',
-               layout: 'bare',
-               error: 'Invalid email or password.'
-            });
-         }
-      }
+app.get('/register', function (req, res, next) {
+   res.render('register.handlebars', {
+      title: 'Register',
+      layout: 'bare',
+      error: "Test"
+   });
+});
+
+app.get('/passwordReset', function (req, res, next) {
+   res.render('passwordReset.handlebars', {
+      title: 'Password reset',
+      layout: 'bare',
+      error: "Test"
    });
 });
 
