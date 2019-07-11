@@ -17,6 +17,8 @@ var express = require('express');
 var exphbs = require('express-handlebars');
 var bodyParser = require('body-parser');
 var session = require('client-sessions');
+var md5 = require('md5');
+var crypto = require('crypto');
 
 var app = express();
 var port = process.env.PORT || 3000;
@@ -71,22 +73,62 @@ app.post('/login', function(req, res) {
 });
 
 app.post('/register', function(req, res) {
-   
+
+});
+
+app.get('/passwordReset/:token', function(req, res, next) {
+   var token = mysql.escape(req.params.token);
+   console.log(req.params.token);
+   con.query(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`,
+      function (err, tokens) {
+         if (tokens.length > 0) {
+            console.log(tokens.length);
+            res.render('passwordReset.handlebars',{
+               title: 'Password Reset',
+               layout: 'bare',
+               token: req.params.token
+            });
+         } else {
+            res.status(404).render('404.handlebars');
+         }
+   });
 });
 
 app.post('/passwordReset', function(req, res) {
    var email = mysql.escape(req.body.email);
    con.query(`SELECT * FROM User WHERE email = ${email}`,
       function (err, uEmail) {
-         if (uEmail.length == 0) {
-            //do nothing
-            console.log('no match!');
-            res.redirect('/login');
-         } else {
+         if (uEmail.length > 0) {
+            console.log(uEmail[0].uname);
+            //generate token
+            var token = crypto.randomBytes(16).toString('base64');
+            console.log(token);
+            con.query(`DELETE FROM PasswordResetToken WHERE uname = '${uEmail[0].uname.toString()}';`);
+            con.query(`INSERT INTO PasswordResetToken (uname,token) VALUES ('${uEmail[0].uname.toString()}', ${mysql.escape(token.toString())});`);
             //send email
             console.log("email sent to"+email);
-            res.redirect('/login');
-         }
+         } else {console.log("no match!");}
+         res.redirect('/login');
+   });
+});
+
+app.post('/updatePassword/:token', function(req, res) {
+   var token = mysql.escape(req.params.token);
+   var password = mysql.escape(req.body.password);
+   var password2 = mysql.escape(req.body.password2);
+   if (password != password2) {res.redirect('/passwordReset/'+token);}
+   con.query(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`,
+      function (err, reset) {
+         console.log(reset.length);
+         //generate salt
+         var salt = crypto.randomBytes(16).toString('base64');
+         console.log(salt);
+         //hash password
+         var passwordHash = md5(password+salt);
+         console.log(passwordHash);
+         con.query(`UPDATE User SET password = '${passwordHash}', salt='${salt}' WHERE uname = '${reset[0].uname.toString()}';`);
+         con.query(`DELETE FROM PasswordResetToken WHERE uname = '${reset[0].uname.toString()}';`);
+         res.redirect('/login');
    });
 });
 
@@ -187,29 +229,22 @@ app.get('/u/:user', function (req, res, next) {
 app.get('/login', function (req, res, next) {
    res.render('login.handlebars', {
       title: 'Login',
-      layout: 'bare',
-      error: "Test"
+      layout: 'bare'
    });
 });
 
 app.get('/register', function (req, res, next) {
    res.render('register.handlebars', {
       title: 'Register',
-      layout: 'bare',
-      error: "Test"
-   });
-});
-
-app.get('/passwordReset', function (req, res, next) {
-   res.render('passwordReset.handlebars', {
-      title: 'Password reset',
-      layout: 'bare',
-      error: "Test"
+      layout: 'bare'
    });
 });
 
 app.get('*', function (req, res) {
-  res.status(404).render('404.handlebars');
+  res.status(404).render('404.handlebars', {
+     title: '404',
+     layout: 'bare'
+  });
 });
 
 app.listen(port, function () {
