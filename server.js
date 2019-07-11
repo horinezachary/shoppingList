@@ -66,7 +66,7 @@ app.post('/login', function(req, res) {
             res.render('login.handlebars', {
                title: 'Login',
                layout: 'bare',
-               error: 'Invalid email or password.'
+               error: 'Invalid username or password.'
             });
          }
       }
@@ -74,7 +74,44 @@ app.post('/login', function(req, res) {
 });
 
 app.post('/register', function(req, res) {
-
+   var fname = mysql.escape(req.body.fname);
+   var lname = mysql.escape(req.body.lname);
+   var uname = mysql.escape(req.body.username);
+   var email = mysql.escape(req.body.email);
+   var pass1 = mysql.escape(req.body.password);
+   var pass2 = mysql.escape(req.body.password2);
+   var userExists = con.query(`SELECT uname FROM User WHERE uname = ${uname.toString()};`,
+      function(err, users) {
+         if (users.length > 0) {
+            res.render('register.handlebars', {
+               title: 'Register',
+               layout: 'bare',
+               error: 'Username is already in use!'
+            });
+            return true;
+         }
+      });
+   if (userExists) {
+      console.log("user exists");
+   }
+   else if (pass1 != pass2) {
+      res.render('register.handlebars', {
+         title: 'Register',
+         layout: 'bare',
+         error: 'Passwords must match.'
+      });
+   } else {
+      //generate salt
+      var salt = crypto.randomBytes(16).toString('base64');
+      console.log(salt);
+      //hash password
+      var passwordHash = md5(pass1+salt);
+      con.query(`INSERT INTO User (uname,fname,lname,email,password,salt)
+                  VALUES (${uname.toString()},${fname.toString()},${lname.toString()},${email.toString()},'${passwordHash.toString()}','${salt.toString()}');`,
+         function (err, userData) {
+            console.log(err);
+         });
+   }
 });
 
 app.get('/passwordReset/:token', function(req, res, next) {
@@ -118,19 +155,21 @@ app.post('/updatePassword/:token', function(req, res) {
    var password = mysql.escape(req.body.password);
    var password2 = mysql.escape(req.body.password2);
    if (password != password2) {res.redirect('/passwordReset/'+token);}
-   con.query(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`,
-      function (err, reset) {
-         console.log(reset.length);
-         //generate salt
-         var salt = crypto.randomBytes(16).toString('base64');
-         console.log(salt);
-         //hash password
-         var passwordHash = md5(password+salt);
-         console.log(passwordHash);
-         con.query(`UPDATE User SET password = '${passwordHash}', salt='${salt}' WHERE uname = '${reset[0].uname.toString()}';`);
-         con.query(`DELETE FROM PasswordResetToken WHERE uname = '${reset[0].uname.toString()}';`);
-         res.redirect('/login');
-   });
+   else {
+      con.query(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`,
+         function (err, reset) {
+            console.log(reset.length);
+            //generate salt
+            var salt = crypto.randomBytes(16).toString('base64');
+            console.log(salt);
+            //hash password
+            var passwordHash = md5(password+salt);
+            console.log(passwordHash);
+            con.query(`UPDATE User SET password = '${passwordHash}', salt='${salt}' WHERE uname = '${reset[0].uname.toString()}';`);
+            con.query(`DELETE FROM PasswordResetToken WHERE uname = '${reset[0].uname.toString()}';`);
+            res.redirect('/login');
+      });
+   }
 });
 
 app.get('/l/:list', function (req, res, next) {
@@ -210,7 +249,6 @@ app.post('/:editList/:list', function (req, res) {
    con.query(`UPDATE ShoppingList SET list_name = ${list}, listColor = ${color} WHERE list_id = ${listid};`);
    res.redirect('/');
 });
-
 
 app.get('/u/:user', function (req, res, next) {
    //var user = mysql.escape(req.params.user);
