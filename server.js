@@ -45,6 +45,7 @@ app.get('/', function (req, res, next) {
    let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user}`,
       function (err, listData) {
       res.status(200).render('home', {
+         title: 'Home',
          user: userData,
          headerlists: listData
       });
@@ -150,6 +151,7 @@ app.get('/l/:list', function (req, res, next) {
       function (err, listData) {
    console.log("Result: " + listData);
       res.status(200).render('shoppingList', {
+         title: singleListData[0].list_name,
          list: singleListData,
          autofillItem: autofillData,
          listItem: listItemData,
@@ -219,6 +221,7 @@ app.get('/u/:user', function (req, res, next) {
    let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user}`,
       function (err, listData) {
       res.status(200).render('user', {
+         title: user,
          user: userData,
          headerlists: listData
       });
