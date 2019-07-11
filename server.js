@@ -48,39 +48,49 @@ let transporter = nodemailer.createTransport({
 });
 
 app.get('/', function (req, res, next) {
-   //var user = mysql.escape(req.params.user);
-   var user = mysql.escape("goofyone");
-   console.log(req.params.user);
-   let userData = con.query(`SELECT * FROM User WHERE User.uname = ${user}`,
-      function (err, userData) {
-   let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user}`,
+   var user = req.session.uname;
+   console.log(user);
+   let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}'`,
       function (err, listData) {
       res.status(200).render('home', {
          title: 'Home',
-         user: userData,
+         uname: req.session.uname,
+         fname: req.session.fname,
+         lname: req.session.lname,
          headerlists: listData
       });
-   });
    });
 });
 
 app.post('/login', function(req, res) {
-   User.findOne({ email: req.body.email }, function(err, user) {
-      if (!user) {
-         res.render('login.handlebars', { error: 'Invalid email or password.' });
-         } else {
-            if (req.body.password === user.password) {
-               // sets a cookie with the user's info
-               req.session.user = user;
-               res.redirect('/');
-         } else {
+   var uname = mysql.escape(req.body.username);
+   con.query(`SELECT * FROM User WHERE uname = ${uname.toString()};`,
+      function(err, user) {
+         if (!user || user.length == 0) {
             res.render('login.handlebars', {
                title: 'Login',
                layout: 'bare',
-               error: 'Invalid username or password.'
+               error: 'Invalid email or password.'
             });
+         } else {
+            var passIn = mysql.escape(req.body.password);
+            var salt = user[0].salt;
+            var passwordHash = md5(passIn+salt);
+            if (passwordHash === user[0].password) {
+               // sets a cookie with the user's info
+               req.session.uname = user[0].uname;
+               req.session.fname = user[0].fname;
+               req.session.lname = user[0].lname;
+               req.session.email = user[0].email;
+               res.redirect('/');
+            } else {
+               res.render('login.handlebars', {
+                  title: 'Login',
+                  layout: 'bare',
+                  error: 'Invalid username or password.'
+               });
+            }
          }
-      }
    });
 });
 
@@ -113,7 +123,7 @@ app.post('/register', function(req, res) {
       });
    } else {
       //generate salt
-      var salt = crypto.randomBytes(16).toString('base64');
+      var salt = crypto.randomBytes(16).toString('hex');
       console.log(salt);
       //hash password
       var passwordHash = md5(pass1+salt);
@@ -150,7 +160,7 @@ app.post('/passwordReset', function(req, res) {
          if (uEmail.length > 0) {
             console.log(uEmail[0].uname);
             //generate token
-            var token = crypto.randomBytes(16).toString('base64');
+            var token = crypto.randomBytes(16).toString('hex');
             console.log(token);
             con.query(`DELETE FROM PasswordResetToken WHERE uname = '${uEmail[0].uname.toString()}';`);
             con.query(`INSERT INTO PasswordResetToken (uname,token) VALUES ('${uEmail[0].uname.toString()}', ${mysql.escape(token.toString())});`);
@@ -161,7 +171,6 @@ app.post('/passwordReset', function(req, res) {
                 to: uEmail[0].email, // list of receivers
                 subject: "Password Reset Link", // Subject line
                 text: "localhost:3000/passwordReset/"+token, // plain text body
-                html: "<a href='localhost:3000/passwordReset/"+token+"'>localhost:3000/passwordReset/"+token+"</a>" // html body
               });
 
             console.log("email sent to"+email);
@@ -174,13 +183,14 @@ app.post('/updatePassword/:token', function(req, res) {
    var token = mysql.escape(req.params.token);
    var password = mysql.escape(req.body.password);
    var password2 = mysql.escape(req.body.password2);
-   if (password != password2) {res.redirect('/passwordReset/'+token);}
-   else {
+   if (password != password2) {
+      res.redirect('/passwordReset/'+token);
+   } else {
       con.query(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`,
          function (err, reset) {
             console.log(reset.length);
             //generate salt
-            var salt = crypto.randomBytes(16).toString('base64');
+            var salt = crypto.randomBytes(8).toString('hex');
             console.log(salt);
             //hash password
             var passwordHash = md5(password+salt);
@@ -193,12 +203,11 @@ app.post('/updatePassword/:token', function(req, res) {
 });
 
 app.get('/l/:list', function (req, res, next) {
-   //var user = mysql.escape(req.params.user);
-   var user = mysql.escape("goofyone");
+   var user = req.session.uname;
    var list = req.params.list;
    list = mysql.escape(list);
    console.log(req.params.user);
-   con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user} AND ShoppingList.list_id = ${list}`,
+   con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList.list_id = ${list}`,
       function (err, singleListData) {
    con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
       function (err, listItemData) {
@@ -206,7 +215,7 @@ app.get('/l/:list', function (req, res, next) {
    con.query(`SELECT * FROM Item`,
       function (err, autofillData) {
 
-   con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user}`,
+   con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}';`,
       function (err, listData) {
    console.log("Result: " + listData);
       res.status(200).render('shoppingList', {
@@ -250,8 +259,7 @@ app.post('/l/delList/', function (req, res) {
 });
 
 app.post('/:other?/addList', function (req, res) {
-   //var user = mysql.escape(req.params.user);
-   var user = mysql.escape("goofyone");
+   var user = mysql.escape(req.session.uname);
    var list = mysql.escape(req.body.listName);
    var color = mysql.escape(req.body.color);
    console.log(list+", "+color);
@@ -260,8 +268,7 @@ app.post('/:other?/addList', function (req, res) {
 });
 
 app.post('/:editList/:list', function (req, res) {
-   //var user = mysql.escape(req.params.user);
-   var user = mysql.escape("goofyone");
+   var user = mysql.escape(req.session.uname);
    var listid = mysql.escape(req.params.list);
    var list = mysql.escape(req.body.listName);
    var color = mysql.escape(req.body.color);
@@ -271,16 +278,17 @@ app.post('/:editList/:list', function (req, res) {
 });
 
 app.get('/u/:user', function (req, res, next) {
-   //var user = mysql.escape(req.params.user);
-   var user = mysql.escape("goofyone");
+   var user = mysql.escape(req.session.uname);
    console.log(req.params.user);
-   let userData = con.query(`SELECT * FROM User WHERE User.uname = ${user}`,
+   let userData = con.query(`SELECT * FROM User WHERE User.uname = '${user.toString()}'`,
       function (err, userData) {
-   let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user}`,
+   let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}'`,
       function (err, listData) {
       res.status(200).render('user', {
          title: user,
-         user: userData,
+         uname: req.session.uname,
+         fname: req.session.fname,
+         lname: req.session.lname,
          headerlists: listData
       });
    });
