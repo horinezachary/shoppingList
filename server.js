@@ -19,6 +19,7 @@ var bodyParser = require('body-parser');
 var session = require('client-sessions');
 var md5 = require('md5');
 var crypto = require('crypto');
+var nodemailer = require('nodemailer');
 
 var app = express();
 var port = process.env.PORT || 3000;
@@ -35,6 +36,16 @@ app.use(session({
   duration: 24 * 60 * 60 * 1000, //1 day
   activeDuration: 24 * 60 * 60 * 1000,
 }));
+
+let transporter = nodemailer.createTransport({
+   host: "smtp.gmail.com",
+   port: 465,
+   secure: true, // true for 465, false for other ports
+   auth: {
+      user: 'lorislist.noreply', // generated ethereal user
+      pass: 'rbovqgckojvrcvwi' // generated ethereal password
+   }
+});
 
 app.get('/', function (req, res, next) {
    //var user = mysql.escape(req.params.user);
@@ -144,6 +155,15 @@ app.post('/passwordReset', function(req, res) {
             con.query(`DELETE FROM PasswordResetToken WHERE uname = '${uEmail[0].uname.toString()}';`);
             con.query(`INSERT INTO PasswordResetToken (uname,token) VALUES ('${uEmail[0].uname.toString()}', ${mysql.escape(token.toString())});`);
             //send email
+
+            let info = transporter.sendMail({
+                from: '"no-reply" <noreply@horine.dev>', // sender address
+                to: uEmail[0].email, // list of receivers
+                subject: "Password Reset Link", // Subject line
+                text: "localhost:3000/passwordReset/"+token, // plain text body
+                html: "<a href='localhost:3000/passwordReset/"+token+"'>localhost:3000/passwordReset/"+token+"</a>" // html body
+              });
+
             console.log("email sent to"+email);
          } else {console.log("no match!");}
          res.redirect('/login');
