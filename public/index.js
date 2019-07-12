@@ -90,3 +90,21 @@ function deleteList(listId) {
    });
    window.location.href='/';
 }
+
+function showField(id) {
+   var fields = ["nameFields","emailField", "password1Field", "password2Field"];
+   for(i = 0; i < fields.length; i++){
+      if (!document.getElementById(fields[i]).classList.contains('hidden')) {
+         document.getElementById(fields[i]).classList.toggle('hidden');
+         //set not required
+      }
+   }
+   if (id == 'passwords') {
+      document.getElementById('password1Field').classList.toggle('hidden');
+      document.getElementById('password2Field').classList.toggle('hidden');
+      //set required
+   } else {
+      document.getElementById(id).classList.toggle('hidden');
+      //set required
+   }
+}

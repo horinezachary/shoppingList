@@ -8,20 +8,20 @@
             <h5 class="font-weight-bold mb-1">Name</h5>
             <h6 class="font-weight-bold mb-0">{{fname}} {{lname}}</h6>
          </div>
-         <button type="button" class="btn btn-dark ml-2 float-right" style="display:inline-block;" data-toggle="modal" data-target="#editInfoModal">Update name</button>
+         <button type="button" class="btn btn-dark ml-2 float-right" style="display:inline-block;" onclick="showField('nameFields');" data-toggle="modal" data-target="#editInfoModal">Update name</button>
       </li>
       <li class="list-group-item">
          <div style="display:inline-block;">
             <h5 class="font-weight-bold mb-1">Email</h5>
             <h6 class="font-weight-bold mb-0">{{email}}</h6>
          </div>
-         <button type="button" class="btn btn-dark ml-2 float-right" style="display:inline-block;">Update email</button>
+         <button type="button" class="btn btn-dark ml-2 float-right" style="display:inline-block;" onclick="showField('emailField');" data-toggle="modal" data-target="#editInfoModal">Update email</button>
       </li>
       <li class="list-group-item">
          <div style="display:inline-block;">
             <h5 class="font-weight-bold mb-0">Password<h5>
          </div>
-         <button type="button" class="btn btn-dark ml-2 float-right" style="display:inline-block;">Change Password</button>
+         <button type="button" class="btn btn-dark ml-2 float-right" style="display:inline-block;" onclick="showField('passwords');" data-toggle="modal" data-target="#editInfoModal">Change Password</button>
       </li>
    </ul>
    {{>editInfoModal}}
