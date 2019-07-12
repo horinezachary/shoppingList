@@ -96,11 +96,12 @@ function showField(id) {
    for(i = 0; i < fields.length; i++){
       if (!document.getElementById(fields[i]).classList.contains('hidden')) {
          document.getElementById(fields[i]).classList.toggle('hidden');
-         //set not required
-         document.getElementById(fields[i]).children[1].required = false;
-         if (fields[i] == "nameFields") {
-            document.getElementById(fields[i]).children[2].required = false;
-         }
+      }
+      document.getElementById(fields[i]).children[1].required = false;
+      document.getElementById(fields[i]).children[1].value = "";
+      if (fields[i] == "nameFields") {
+         document.getElementById(fields[i]).children[2].required = false;
+         document.getElementById(fields[i]).children[2].value = "";
       }
    }
    if (id == 'passwords') {

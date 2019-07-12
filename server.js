@@ -267,6 +267,46 @@ app.post('/:other?/addList', function (req, res) {
    res.redirect('/');
 });
 
+app.post('/editInfo', function (req, res) {
+   var user = mysql.escape(req.session.uname);
+   var fname = mysql.escape(req.body.fname);
+   var lname = mysql.escape(req.body.lname);
+   var email = mysql.escape(req.body.email);
+   var pass1 = mysql.escape(req.body.password);
+   var pass2 = mysql.escape(req.body.password2);
+   console.log(req.body.fname);
+   console.log(lname);
+   console.log(email);
+   if (req.body.fname && req.body.lname){
+      console.log("update name");
+      con.query(`UPDATE User SET fname = ${fname}, lname = ${lname} WHERE uname = ${user};`);
+      req.session.fname = req.body.fname;
+      req.session.lname = req.body.lname;
+      res.redirect('/myAccount');
+   } else if (req.body.email) {
+      con.query(`UPDATE User SET email = ${email} WHERE uname = ${user};`);
+      req.session.email = req.body.email;
+      res.redirect('/myAccount');
+   } else if (pass1 != '' && pass2 != '') {
+      if (pass1 != pass2) {
+         var token = crypto.randomBytes(16).toString('hex');
+         console.log(token);
+         con.query(`DELETE FROM PasswordResetToken WHERE uname = ${user};`);
+         con.query(`INSERT INTO PasswordResetToken (uname,token) VALUES (${user}, ${mysql.escape(token.toString())});`);
+         res.redirect('/passwordReset/'+token);
+      } else {
+         //generate salt
+         var salt = crypto.randomBytes(8).toString('hex');
+         console.log(salt);
+         //hash password
+         var passwordHash = md5(pass1+salt);
+         console.log(passwordHash);
+         con.query(`UPDATE User SET password = '${passwordHash}', salt='${salt}' WHERE uname = ${user};`);
+         res.redirect('/myAccount');
+      }
+   }
+});
+
 app.post('/:editList/:list', function (req, res) {
    var user = mysql.escape(req.session.uname);
    var listid = mysql.escape(req.params.list);
@@ -279,7 +319,7 @@ app.post('/:editList/:list', function (req, res) {
 
 app.get('/:other?/myAccount', function (req, res, next) {
    var user = mysql.escape(req.session.uname);
-   console.log(req.params.user);
+   console.log(user);
    let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`,
       function (err, listData) {
       res.status(200).render('user', {
