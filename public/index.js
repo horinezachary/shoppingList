@@ -97,14 +97,24 @@ function showField(id) {
       if (!document.getElementById(fields[i]).classList.contains('hidden')) {
          document.getElementById(fields[i]).classList.toggle('hidden');
          //set not required
+         document.getElementById(fields[i]).children[1].required = false;
+         if (fields[i] == "nameFields") {
+            document.getElementById(fields[i]).children[2].required = false;
+         }
       }
    }
    if (id == 'passwords') {
       document.getElementById('password1Field').classList.toggle('hidden');
       document.getElementById('password2Field').classList.toggle('hidden');
+      document.getElementById('password1Field').children[1].required = true;
+      document.getElementById('password2Field').children[1].required = true;
       //set required
    } else {
       document.getElementById(id).classList.toggle('hidden');
+      document.getElementById(id).children[1].required = true;
+      if (id == "nameFields") {
+         document.getElementById(id).children[2].required = true;
+      }
       //set required
    }
 }
