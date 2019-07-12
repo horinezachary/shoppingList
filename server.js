@@ -277,21 +277,19 @@ app.post('/:editList/:list', function (req, res) {
    res.redirect('/');
 });
 
-app.get('/u/:user', function (req, res, next) {
+app.get('/:other?/myAccount', function (req, res, next) {
    var user = mysql.escape(req.session.uname);
    console.log(req.params.user);
-   let userData = con.query(`SELECT * FROM User WHERE User.uname = '${user.toString()}'`,
-      function (err, userData) {
-   let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}'`,
+   let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`,
       function (err, listData) {
       res.status(200).render('user', {
          title: user,
          uname: req.session.uname,
          fname: req.session.fname,
          lname: req.session.lname,
+         email: req.session.email,
          headerlists: listData
       });
-   });
    });
 });
 

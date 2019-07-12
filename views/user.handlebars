@@ -1,5 +1,44 @@
-{{user.0.uname}}
-{{user.0.list.0.list_name}}
-{{#each user}}
-   {{uname}}
-{{/each}}
+<div class="card list" id="infoHolder" style="width: 40rem;">
+   <div class="card-body listHeader">
+      <h3 class="font-weight-bold mb-0 user-name">My Account - {{uname}}</h3>
+   </div>
+   <ul class="list-group list-group-flush" id="list-group">
+      <li class="list-group-item">
+         <div style="display:inline-block;">
+            <h5 class="font-weight-bold mb-1">Name</h5>
+            <h6 class="font-weight-bold mb-0">{{fname}} {{lname}}</h6>
+         </div>
+         <button type="button" class="btn btn-dark ml-2 float-right" style="display:inline-block;" data-toggle="modal" data-target="#editInfoModal">Update name</button>
+      </li>
+      <li class="list-group-item">
+         <div style="display:inline-block;">
+            <h5 class="font-weight-bold mb-1">Email</h5>
+            <h6 class="font-weight-bold mb-0">{{email}}</h6>
+         </div>
+         <button type="button" class="btn btn-dark ml-2 float-right" style="display:inline-block;">Update email</button>
+      </li>
+      <li class="list-group-item">
+         <div style="display:inline-block;">
+            <h5 class="font-weight-bold mb-0">Password<h5>
+         </div>
+         <button type="button" class="btn btn-dark ml-2 float-right" style="display:inline-block;">Change Password</button>
+      </li>
+   </ul>
+   {{>editInfoModal}}
+</div>
+
+<div class="card list mt-3" id="listHolder" style="width: 40rem;">
+   <div class="card-body listHeader">
+      <h3 class="font-weight-bold mb-0 user-name">My Lists</h3>
+   </div>
+   <ul class="list-group list-group-flush" id="list-group">
+      {{#each headerlists}}
+         {{>userList}}
+      {{/each}}
+      <li class="list-group-item" id="list_add">
+         <button type="button" class="btn btn-dark ml-2 float-right" data-toggle="modal" data-target="#addListModal">Add List</button>
+      </li>
+   </ul>
+   {{>deleteModal}}
+   {{>editListModal}}
+</div>
