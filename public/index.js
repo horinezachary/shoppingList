@@ -1,5 +1,14 @@
-function setChecked(listId, id) {
+function setChecked(list, listId, id) {
    document.getElementById(id).classList.toggle('checked');
+   fetch('/l/crossItem/'+list, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        items: id
+    })
+});
    checkDisabled(listId);
 }
 

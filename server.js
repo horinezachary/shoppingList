@@ -272,6 +272,19 @@ app.post('/l/delItem/:list', function (req, res) {
    }
 });
 
+
+app.post('/l/crossItem/:list', function (req, res) {
+   if (!req.session.uname) {
+      res.redirect('/login');
+   } else {
+      var list = req.params.list;
+      var items = req.body.items;
+      var query = `UPDATE ShoppingList_Item SET checked = 1 WHERE sItem_id = ${items}`;
+      con.query(query+`;`);
+      res.redirect('/l/'+list);
+   }
+});
+
 app.post('/l/delList/', function (req, res) {
    if (!req.session.uname) {
       res.redirect('/login');
