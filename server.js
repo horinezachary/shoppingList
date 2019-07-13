@@ -221,25 +221,32 @@ app.get('/l/:list', function (req, res, next) {
       console.log(req.params.user);
       con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList.list_id = ${list}`,
          function (err, singleListData) {
-      con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
-         function (err, listItemData) {
+            if (singleListData.length == 0){
+               res.status(404).render('404.handlebars', {
+                  title: '404',
+                  layout: 'bare'
+               });
+            } else {
+               con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
+                  function (err, listItemData) {
 
-      con.query(`SELECT * FROM Item`,
-         function (err, autofillData) {
+               con.query(`SELECT * FROM Item WHERE Item.owner = '${user.toString()}';`,
+                  function (err, autofillData) {
 
-      con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}';`,
-         function (err, listData) {
-      console.log("Result: " + listData);
-         res.status(200).render('shoppingList', {
-            title: singleListData[0].list_name,
-            list: singleListData,
-            autofillItem: autofillData,
-            listItem: listItemData,
-            headerlists: listData
-      });
-      });
-      });
-      });
+               con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}';`,
+                  function (err, listData) {
+               console.log("Result: " + listData);
+                  res.status(200).render('shoppingList', {
+                     title: singleListData[0].list_name,
+                     list: singleListData,
+                     autofillItem: autofillData,
+                     listItem: listItemData,
+                     headerlists: listData
+               });
+               });
+               });
+               });
+            }
       });
    }
 });
