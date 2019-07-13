@@ -255,11 +255,12 @@ app.post('/l/addItem/:list', function (req, res) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
+      var user = req.session.uname;
       var list = req.params.list;
       var icount = req.body.icount;
       var item = req.body.itemName;
       console.log(list+", "+icount+", "+item);
-      con.query(`CALL addShoppingItem(${list},${icount},'${item.toString()}');`);
+      con.query(`CALL addShoppingItem('${user.toString()}',${list},${icount},'${item.toString()}');`);
       res.redirect('/l/'+list);
    }
 });
