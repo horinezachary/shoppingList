@@ -1,12 +1,17 @@
 function setChecked(list, listId, id) {
+   var checked = 0;
    document.getElementById(id).classList.toggle('checked');
+   if (document.getElementById(id).classList.contains('checked')) {
+      checked = 1;
+   }
    fetch('/l/crossItem/'+list, {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-        items: id
+        items: id,
+        check: checked
     })
 });
    checkDisabled(listId);

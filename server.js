@@ -229,7 +229,13 @@ app.get('/l/:list', function (req, res, next) {
             } else {
                con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
                   function (err, listItemData) {
-
+                     var buttonDisabled = true;
+                     for (i = 0; i < listItemData.length; i++) {
+                        if (listItemData[i].checked == 1) {
+                           buttonDisabled = false;
+                           break;
+                        }
+                     }
                con.query(`SELECT * FROM Item WHERE Item.owner = '${user.toString()}';`,
                   function (err, autofillData) {
 
@@ -241,7 +247,8 @@ app.get('/l/:list', function (req, res, next) {
                      list: singleListData,
                      autofillItem: autofillData,
                      listItem: listItemData,
-                     headerlists: listData
+                     headerlists: listData,
+                     buttonDisabled: buttonDisabled
                });
                });
                });
@@ -287,7 +294,9 @@ app.post('/l/crossItem/:list', function (req, res) {
    } else {
       var list = req.params.list;
       var items = req.body.items;
-      var query = `UPDATE ShoppingList_Item SET checked = 1 WHERE sItem_id = ${items}`;
+      var check = req.body.check;
+      console.log(check);
+      var query = `UPDATE ShoppingList_Item SET checked = ${check} WHERE sItem_id = ${items}`;
       con.query(query+`;`);
       res.redirect('/l/'+list);
    }
