@@ -20,14 +20,7 @@ var session = require('client-sessions');
 var md5 = require('md5');
 var crypto = require('crypto');
 var nodemailer = require('nodemailer');
-
-var https = require('https');
 var fs = require('fs');
-
-var https_options = {
-   key: fs.readFileSync("/etc/letsencrypt/live/lorislist.horine.dev/privkey.pem"),
-   cert: fs.readFileSync("/etc/letsencrypt/live/lorislist.horine.dev/fullchain.pem")
-};
 
 var app = express();
 var port = process.env.PORT || 3000;
@@ -436,5 +429,3 @@ app.get('*', function (req, res) {
 app.listen(port, function () {
     console.log("== Server listening on port", port);
 });
-
-https.createServer(https_options,app).listen(3001);
