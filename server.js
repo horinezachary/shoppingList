@@ -121,28 +121,31 @@ app.post('/register', function(req, res) {
             });
             return true;
          }
-      });
-   if (userExists) {
-      console.log("user exists");
-   }
-   else if (pass1 != pass2) {
-      res.render('register.handlebars', {
-         title: 'Register',
-         layout: 'bare',
-         error: 'Passwords must match.'
-      });
-   } else {
-      //generate salt
-      var salt = crypto.randomBytes(16).toString('hex');
-      console.log(salt);
-      //hash password
-      var passwordHash = md5(pass1+salt);
-      con.query(`INSERT INTO User (uname,fname,lname,email,password,salt)
-                  VALUES (${uname.toString()},${fname.toString()},${lname.toString()},${email.toString()},'${passwordHash.toString()}','${salt.toString()}');`,
-         function (err, userData) {
-            console.log(err);
-         });
-   }
+         else if (pass1 != pass2) {
+            res.render('register.handlebars', {
+               title: 'Register',
+               layout: 'bare',
+               error: 'Passwords must match.'
+            });
+         } else {
+            //generate salt
+            var salt = crypto.randomBytes(16).toString('hex');
+            console.log(salt);
+            //hash password
+            var passwordHash = md5(pass1+salt);
+            con.query(`INSERT INTO User (uname,fname,lname,email,password,salt)
+                        VALUES (${uname.toString()},${fname.toString()},${lname.toString()},${email.toString()},'${passwordHash.toString()}','${salt.toString()}');`,
+               function (err, userData) {
+                  console.log(err);
+               });
+
+            req.session.uname = req.body.username;
+            req.session.fname = req.body.fname;
+            req.session.lname = req.body.lname;
+            req.session.email = req.body.email;
+            res.redirect('/');
+         }
+   });
 });
 
 app.get('/passwordReset/:token', function(req, res, next) {
@@ -207,7 +210,12 @@ app.post('/updatePassword/:token', function(req, res) {
             console.log(passwordHash);
             con.query(`UPDATE User SET password = '${passwordHash}', salt='${salt}' WHERE uname = '${reset[0].uname.toString()}';`);
             con.query(`DELETE FROM PasswordResetToken WHERE uname = '${reset[0].uname.toString()}';`);
-            res.redirect('/login');
+
+            req.session.uname = req.body.username;
+            req.session.fname = req.body.fname;
+            req.session.lname = req.body.lname;
+            req.session.email = req.body.email;
+            res.redirect('/');
       });
    }
 });
