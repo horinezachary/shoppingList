@@ -20,6 +20,7 @@ var session = require('client-sessions');
 var md5 = require('md5');
 var crypto = require('crypto');
 var nodemailer = require('nodemailer');
+var nodemailerhbs = require('nodemailer-express-handlebars');
 
 var app = express();
 var port = process.env.PORT || 3000;
@@ -45,6 +46,42 @@ let transporter = nodemailer.createTransport({
       user: 'lorislist.noreply', // generated ethereal user
       pass: 'rbovqgckojvrcvwi' // generated ethereal password
    }
+});
+let ViewOption = (transport, hbs) => {
+    transport.use('compile', hbs({
+      viewEngine: {
+         extName: '.hbs',
+         partialsDir: 'views/partials',
+         layoutsDir: 'views/layouts',
+         defaultLayout: 'email.handlebars',
+      },
+      viewPath: 'views/email',
+      extName: '.handlebars'
+    }));
+}
+
+app.get('/email/template', (req, res, next) => {
+  ViewOption(transporter,nodemailerhbs);
+  let HelperOptions = {
+    from: '"Loris-List" <noreply@horine.dev>',
+    to: 'test@horine.dev',
+    subject: 'Hellow world!',
+    template: 'test',
+    context: {
+      name:"no-reply",
+      email: "test@horine.dev",
+      address: "52, Kadamtola Shubag dhaka"
+    }
+  };
+  transporter.sendMail(HelperOptions, (error,info) => {
+    if(error) {
+      console.log(error);
+      res.json(error);
+    }
+    console.log("email is send");
+    console.log(info);
+    res.json(info)
+  });
 });
 
 app.get('/', function (req, res, next) {
