@@ -210,10 +210,10 @@ app.post('/updatePassword/:token', function(req, res) {
             con.query(`UPDATE User SET password = '${passwordHash}', salt='${salt}' WHERE uname = '${reset[0].uname.toString()}';`);
             con.query(`DELETE FROM PasswordResetToken WHERE uname = '${reset[0].uname.toString()}';`);
 
-            req.session.uname = user[0].uname;
-            req.session.fname = user[0].fname;
-            req.session.lname = user[0].lname;
-            req.session.email = user[0].email;
+            req.session.uname = req.body.username;
+            req.session.fname = req.body.fname;
+            req.session.lname = req.body.lname;
+            req.session.email = req.body.email;
             res.redirect('/');
       });
    }
