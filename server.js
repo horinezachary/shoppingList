@@ -274,6 +274,10 @@ app.post('/l/addItem/:list', function (req, res) {
       var user = req.session.uname;
       var list = req.params.list;
       var icount = req.body.icount;
+      console.log("\'"+icount+"\'");
+      if (!icount) {
+         icount = 'NULL';
+      }
       var item = req.body.itemName;
       console.log(list+", "+icount+", "+item);
       con.query(`CALL addShoppingItem('${user.toString()}',${list},${icount},'${item.toString()}');`);
