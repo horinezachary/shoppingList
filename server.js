@@ -19,7 +19,10 @@ var bodyParser = require('body-parser');
 var session = require('client-sessions');
 var md5 = require('md5');
 var crypto = require('crypto');
+
 var nodemailer = require('nodemailer');
+var nodemailerhbs = require('nodemailer-express-handlebars');
+
 var fs = require('fs');
 
 var app = express();
@@ -43,10 +46,23 @@ let transporter = nodemailer.createTransport({
    port: 465,
    secure: true, // true for 465, false for other ports
    auth: {
-      user: 'lorislist.noreply', // generated ethereal user
-      pass: 'rbovqgckojvrcvwi' // generated ethereal password
+      user: 'lorislist.noreply',
+      pass: 'rbovqgckojvrcvwi'
    }
 });
+
+let ViewOption = (transport, hbs) => {
+    transport.use('compile', hbs({
+      viewEngine: {
+         extName: '.hbs',
+         partialsDir: 'views/partials',
+         layoutsDir: 'views/layouts',
+         defaultLayout: 'email.handlebars',
+      },
+      viewPath: 'views/email',
+      extName: '.handlebars'
+    }));
+}
 
 app.get('/', function (req, res, next) {
    if (!req.session.uname) {
@@ -178,14 +194,28 @@ app.post('/passwordReset', function(req, res) {
             con.query(`DELETE FROM PasswordResetToken WHERE uname = '${uEmail[0].uname.toString()}';`);
             con.query(`INSERT INTO PasswordResetToken (uname,token) VALUES ('${uEmail[0].uname.toString()}', ${mysql.escape(token.toString())});`);
             //send email
-
-            let info = transporter.sendMail({
-                from: '"no-reply" <noreply@horine.dev>', // sender address
-                to: uEmail[0].email, // list of receivers
-                subject: "Password Reset Link", // Subject line
-                text: "localhost:3000/passwordReset/"+token, // plain text body
-              });
-
+            ViewOption(transporter,nodemailerhbs);
+            let HelperOptions = {
+              from: '"Loris-List" <noreply@horine.dev>',
+              to: uEmail[0].email,
+              subject: 'Password Reset - Lori\'s List',
+              template: 'reset',
+              context: {
+                name: uEmail[0].fname+' '+uEmail[0].lname,
+                email: uEmail[0].email,
+                uname: uEmail[0].uname,
+                link: 'https://lorislist.horine.dev/passwordReset/'+token,
+              }
+            };
+            transporter.sendMail(HelperOptions, (error,info) => {
+              if(error) {
+                console.log(error);
+                res.json(error);
+              }
+              console.log("email is send");
+              console.log(info);
+              res.json(info)
+            });
             console.log("email sent to"+email);
          } else {console.log("no match!");}
          res.redirect('/login');
