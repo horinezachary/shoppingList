@@ -214,14 +214,28 @@ app.post('/passwordReset', function(req, res) {
             con.query(`DELETE FROM PasswordResetToken WHERE uname = '${uEmail[0].uname.toString()}';`);
             con.query(`INSERT INTO PasswordResetToken (uname,token) VALUES ('${uEmail[0].uname.toString()}', ${mysql.escape(token.toString())});`);
             //send email
-
-            let info = transporter.sendMail({
-                from: '"no-reply" <noreply@horine.dev>', // sender address
-                to: uEmail[0].email, // list of receivers
-                subject: "Password Reset Link", // Subject line
-                text: "localhost:3000/passwordReset/"+token, // plain text body
-              });
-
+            ViewOption(transporter,nodemailerhbs);
+            let HelperOptions = {
+              from: '"Loris-List" <noreply@horine.dev>',
+              to: uEmail[0].email,
+              subject: 'Password Reset - Lori\'s List',
+              template: 'reset',
+              context: {
+                name: uEmail[0].fname+' '+uEmail[0].lname,
+                email: uEmail[0].email,
+                uname: uEmail[0].uname,
+                link: 'https://lorislist.horine.dev/passwordReset/'+token,
+              }
+            };
+            transporter.sendMail(HelperOptions, (error,info) => {
+              if(error) {
+                console.log(error);
+                res.json(error);
+              }
+              console.log("email is send");
+              console.log(info);
+              res.json(info)
+            });
             console.log("email sent to"+email);
          } else {console.log("no match!");}
          res.redirect('/login');
