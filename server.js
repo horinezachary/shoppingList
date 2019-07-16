@@ -43,10 +43,11 @@ let transporter = nodemailer.createTransport({
    port: 465,
    secure: true, // true for 465, false for other ports
    auth: {
-      user: 'lorislist.noreply', // generated ethereal user
-      pass: 'rbovqgckojvrcvwi' // generated ethereal password
+      user: 'lorislist.noreply',
+      pass: 'rbovqgckojvrcvwi'
    }
 });
+
 let ViewOption = (transport, hbs) => {
     transport.use('compile', hbs({
       viewEngine: {
@@ -59,30 +60,6 @@ let ViewOption = (transport, hbs) => {
       extName: '.handlebars'
     }));
 }
-
-app.get('/email/template', (req, res, next) => {
-  ViewOption(transporter,nodemailerhbs);
-  let HelperOptions = {
-    from: '"Loris-List" <noreply@horine.dev>',
-    to: 'test@horine.dev',
-    subject: 'Hellow world!',
-    template: 'test',
-    context: {
-      name:"no-reply",
-      email: "test@horine.dev",
-      address: "52, Kadamtola Shubag dhaka"
-    }
-  };
-  transporter.sendMail(HelperOptions, (error,info) => {
-    if(error) {
-      console.log(error);
-      res.json(error);
-    }
-    console.log("email is send");
-    console.log(info);
-    res.json(info)
-  });
-});
 
 app.get('/', function (req, res, next) {
    if (!req.session.uname) {
