@@ -19,8 +19,11 @@ var bodyParser = require('body-parser');
 var session = require('client-sessions');
 var md5 = require('md5');
 var crypto = require('crypto');
+
 var nodemailer = require('nodemailer');
 var nodemailerhbs = require('nodemailer-express-handlebars');
+
+var fs = require('fs');
 
 var app = express();
 var port = process.env.PORT || 3000;
