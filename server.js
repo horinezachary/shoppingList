@@ -62,6 +62,19 @@ let ViewOption = (transport, hbs) => {
 }
 
 app.get('/', function (req, res, next) {
+   if (req.session.uname) {
+      res.redirect('/home');
+   } else {
+      res.status(200).render('info', {
+         title: 'Lori\'s List',
+         layout: 'bare',
+         loginButton: true
+      })
+   }
+});
+
+
+app.get('/home', function (req, res, next) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
@@ -114,7 +127,7 @@ app.post('/login', function(req, res) {
 
 app.get('/logout', function (req, res, next) {
     req.session.reset();
-    res.redirect('/login');
+    res.redirect('/');
 });
 
 app.post('/register', function(req, res) {

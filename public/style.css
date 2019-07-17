@@ -71,6 +71,10 @@ body{
    line-height: 0;
 }
 
+.indent {
+   margin-left: 1rem;
+}
+
 #color1 {
    background-color: #e04331;
 }
