@@ -14,6 +14,9 @@
          <div style="display:inline-block;">
             <h5 class="font-weight-bold mb-1">Email</h5>
             <h6 class="font-weight-bold mb-0">{{email}}</h6>
+            {{#if emailerror}}
+               <div class="pb-1 pt-1 mb-0 mt-1 alert-danger alert text-center" role="alert">{{emailerror}}</div>
+            {{/if}}
          </div>
          <button type="button" class="btn btn-dark ml-2 float-right" style="display:inline-block;" onclick="showField('emailField');" data-toggle="modal" data-target="#editInfoModal">Update email</button>
       </li>
