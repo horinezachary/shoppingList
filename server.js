@@ -1,4 +1,4 @@
-uvar mysql = require('mysql');
+var mysql = require('mysql');
 
 var con = mysql.createConnection({
    host: "localhost",
