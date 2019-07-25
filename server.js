@@ -140,9 +140,19 @@ app.post('/register', function(req, res) {
    var email = mysql.escape(req.body.email);
    var pass1 = mysql.escape(req.body.password);
    var pass2 = mysql.escape(req.body.password2);
+   var emailExists = con.query(`SELECT uname FROM User WHERE email = ${email.toString()};`,
+      function(err, emailIn) {
    var userExists = con.query(`SELECT uname FROM User WHERE uname = ${uname.toString()};`,
       function(err, users) {
-         if (users.length > 0) {
+         if (emailIn.length > 0) {
+            res.render('register.handlebars', {
+               title: 'Register',
+               layout: 'bare',
+               error: 'Email is already in use!'
+            });
+            return true;
+         }
+         else if (users.length > 0) {
             res.render('register.handlebars', {
                title: 'Register',
                layout: 'bare',
@@ -174,6 +184,7 @@ app.post('/register', function(req, res) {
             req.session.email = req.body.email;
             res.redirect('/');
          }
+   });
    });
 });
 
@@ -402,9 +413,29 @@ app.post('/editInfo', function (req, res) {
          req.session.lname = req.body.lname;
          res.redirect('/myAccount');
       } else if (req.body.email) {
-         con.query(`UPDATE User SET email = ${email} WHERE uname = ${user};`);
-         req.session.email = req.body.email;
-         res.redirect('/myAccount');
+         var emailExists = con.query(`SELECT uname FROM User WHERE email = ${email.toString()};`,
+            function(err, email) {
+               if (email.length > 0) {
+                  let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`,
+                     function (err, listData) {
+                        res.render('user.handlebars', {
+                           title: req.session.uname,
+                           uname: req.session.uname,
+                           fname: req.session.fname,
+                           lname: req.session.lname,
+                           email: req.session.email,
+                           headerlists: listData,
+                           emailerror: 'The email you entered is already in use!'
+                        });
+                  });
+                  return true;
+               }
+               else {
+                  con.query(`UPDATE User SET email = ${email} WHERE uname = ${user};`);
+                  req.session.email = req.body.email;
+                  res.redirect('/myAccount');
+               }
+            });
       } else if (pass1 != '' && pass2 != '') {
          if (pass1 != pass2) {
             var token = crypto.randomBytes(16).toString('hex');
