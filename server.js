@@ -1,4 +1,4 @@
-var mysql = require('mysql');
+uvar mysql = require('mysql');
 
 var con = mysql.createConnection({
    host: "localhost",
@@ -426,7 +426,7 @@ app.post('/editInfo', function (req, res) {
    }
 });
 
-app.post('/:editList/:list', function (req, res) {
+app.post('/:editList/editList/:list', function (req, res) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
