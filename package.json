@@ -11,7 +11,7 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git://github.com/username/repository.git"
+    "url": "git://github.com/horinezachary/shoppingList.git"
   },
   "dependencies": {
     "body-parser": "^1.19.0",
