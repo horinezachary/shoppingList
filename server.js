@@ -37,8 +37,8 @@ app.use(bodyParser.json());
 app.use(session({
   cookieName: 'session',
   secret: 'dQ46q4AlvniGACyALReI',
-  duration: 24 * 60 * 60 * 1000, //1 day
-  activeDuration: 24 * 60 * 60 * 1000,
+  duration: 365 * 24 * 60 * 60 * 1000, //1 day
+  activeDuration: 365 * 24 * 60 * 60 * 1000,
 }));
 
 let transporter = nodemailer.createTransport({
