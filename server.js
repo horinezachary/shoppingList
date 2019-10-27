@@ -491,6 +491,48 @@ app.get('/:other?/myAccount', function (req, res, next) {
    }
 });
 
+//******APP FUNCTIONALITY*********\\
+app.get('/app/getuserdata/:appId', function (req, res) {
+   var appIdIn = req.params.appId;
+   var user = "";
+   let appId = con.query(`SELECT uname FROM appKey WHERE appKey = '${appIdIn.toString()}'`,
+      function (err, appId) {
+         console.log(appId);
+         if (appId.length <= 0) {
+            res.status(404).render('404.handlebars', {
+               title: '404',
+               layout: 'bare'
+            });
+         }else {
+            user = appId[0].uname;
+
+            console.log(user.toString());
+            //var user = req.body.uname;
+            let userLists = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}'`,
+               function (err, userLists) {
+                  let userShoppingItems = con.query(`SELECT item_id, list_id, number, sitem_id, checked FROM ShoppingList_Item NATURAL JOIN ShoppingList WHERE ShoppingList.owner = '${user.toString()}';`,
+                     function (err, userShoppingItems) {
+                        let userItems = con.query(`SELECT item_id, item_name FROM Item WHERE owner = '${user.toString()}'`,
+                           function (err, userItems) {
+                              console.log({userLists: userLists, userShoppingItems: userShoppingItems, userItems: userItems});
+                              res.setHeader('Content-Type', 'application/json');
+                              res.json({userLists: userLists, userShoppingItems: userShoppingItems, userItems: userItems});
+                           }
+                        );
+                     }
+                  );
+               }
+            );
+         }
+      }
+   );
+});
+
+
+
+
+//******LOGIN INFO****************\\
+
 app.get('/login', function (req, res, next) {
    res.render('login.handlebars', {
       title: 'Login',
@@ -505,6 +547,7 @@ app.get('/register', function (req, res, next) {
    });
 });
 
+//******404 Page******************\\
 app.get('*', function (req, res) {
   res.status(404).render('404.handlebars', {
      title: '404',
