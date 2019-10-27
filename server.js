@@ -492,6 +492,46 @@ app.get('/:other?/myAccount', function (req, res, next) {
 });
 
 //******APP FUNCTIONALITY*********\\
+
+app.post('/app/login', function (req, res) {
+   var uname = mysql.escape(req.body.username);
+   con.query(`SELECT * FROM User WHERE uname = ${uname.toString()};`,
+      function(err, user) {
+         if (!user || user.length == 0) {
+            res.render('login.handlebars', {
+               title: 'Login',
+               layout: 'bare',
+               error: 'Invalid email or password.'
+            });
+         } else {
+            var passIn = mysql.escape(req.body.password);
+            var salt = user[0].salt;
+            var passwordHash = md5(passIn+salt);
+            if (passwordHash === user[0].password) {
+               var newAppId = crypto.randomBytes(16).toString('hex');
+               con.query(`INSERT INTO appKey (appKey,uname) VALUES (${newAppId}, ${uname.toString()})`);
+               res.json({uname: user[0].uname, fname: user[0].fname, lname: user[0].lname, email: user[0].email, appId: newAppId});
+            } else {
+               res.json({status: 'failure'});
+            }
+         }
+   });
+});
+
+app.post('/app/logout', function (req, res) {
+   var appId = mysql.escape(req.body.appId);
+      con.query(`DELETE FROM appKey WHERE appKey = ${appId.toString()};`,
+      function(err,data) {
+         if (err) {
+            res.json({status: 'failure'});
+         } else {
+            res.json({status: 'success'});
+         }
+      });
+
+});
+
+
 app.get('/app/getuserdata/:appId', function (req, res) {
    var appIdIn = req.params.appId;
    var user = "";
@@ -515,7 +555,6 @@ app.get('/app/getuserdata/:appId', function (req, res) {
                         let userItems = con.query(`SELECT item_id, item_name FROM Item WHERE owner = '${user.toString()}'`,
                            function (err, userItems) {
                               console.log({userLists: userLists, userShoppingItems: userShoppingItems, userItems: userItems});
-                              res.setHeader('Content-Type', 'application/json');
                               res.json({userLists: userLists, userShoppingItems: userShoppingItems, userItems: userItems});
                            }
                         );
