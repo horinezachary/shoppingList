@@ -31,7 +31,7 @@ app.engine('handlebars', exphbs({ defaultLayout: 'main' }));
 app.set('view engine', 'handlebars');
 
 app.use(express.static('public'));
-app.use('/:url', express.static('public'));
+app.use('/:urla?/:urlb?/:urlc?', express.static('public'));
 app.use(bodyParser.urlencoded({extended : true}));
 app.use(bodyParser.json());
 app.use(session({
