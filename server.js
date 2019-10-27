@@ -345,7 +345,7 @@ app.post('/l/delItem/:list', function (req, res) {
    } else {
       var list = req.params.list;
       var items = req.body.items;
-      var query = `DELETE FROM ShoppingList_Item WHERE sItem_id = ${items[0]}`;
+      var query = `CALL deleteShoppingItem(${items[0]});`;
       for (i = 1; i < items.length; i++) {
          query += ` OR sItem_id = ${items[i]}`;
       }
@@ -363,8 +363,7 @@ app.post('/l/crossItem/:list', function (req, res) {
       var items = req.body.items;
       var check = req.body.check;
       console.log(check);
-      var query = `UPDATE ShoppingList_Item SET checked = ${check} WHERE sItem_id = ${items}`;
-      con.query(query+`;`);
+      con.query(`CALL setChecked(${items},${check});`);
       res.redirect('/l/'+list);
    }
 });
@@ -375,7 +374,7 @@ app.post('/l/delList/', function (req, res) {
    } else {
       var list = req.body.list;
       console.log(list);
-      con.query(`DELETE FROM ShoppingList WHERE list_id = ${list};`);
+      con.query(`CALL deleteList(${list});`);
       res.redirect('/');
    }
 });
@@ -388,7 +387,7 @@ app.post('/:other?/addList', function (req, res) {
       var list = mysql.escape(req.body.listName);
       var color = mysql.escape(req.body.color);
       console.log(list+", "+color);
-      con.query(`INSERT INTO ShoppingList (list_name,owner,listColor) VALUES (${list.toString()},${user.toString()},${color.toString()});`);
+      con.query(`CALL addList(${list.toString()},${user.toString()},${color.toString()});`);
       res.redirect('/');
    }
 });
@@ -466,7 +465,7 @@ app.post('/:editList/editList/:list', function (req, res) {
       var list = mysql.escape(req.body.listName);
       var color = mysql.escape(req.body.color);
       console.log(listid+", "+list+", "+color);
-      con.query(`UPDATE ShoppingList SET list_name = ${list}, listColor = ${color} WHERE list_id = ${listid};`);
+      con.query(`CALL editList(${listid},${list},${color});`);
       res.redirect('/');
    }
 });
