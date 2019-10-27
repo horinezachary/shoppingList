@@ -281,7 +281,6 @@ app.get('/l/:list', function (req, res, next) {
       var user = req.session.uname;
       var list = req.params.list;
       list = mysql.escape(list);
-      console.log(req.params.user);
       con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList.list_id = ${list}`,
          function (err, singleListData) {
             if (singleListData.length == 0){
@@ -304,7 +303,7 @@ app.get('/l/:list', function (req, res, next) {
 
                con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}';`,
                   function (err, listData) {
-               console.log("Result: " + listData);
+               console.log("Header Lists: " + listData);
                   res.status(200).render('shoppingList', {
                      title: singleListData[0].list_name,
                      list: singleListData,
@@ -328,12 +327,12 @@ app.post('/l/addItem/:list', function (req, res) {
       var user = req.session.uname;
       var list = req.params.list;
       var icount = req.body.icount;
-      console.log("\'"+icount+"\'");
+      console.log("icount: \'"+icount+"\'");
       if (!icount) {
          icount = 'NULL';
       }
       var item = req.body.itemName;
-      console.log(list+", "+icount+", "+item);
+      console.log(user+", "+list+", "+icount+", "+item);
       con.query(`CALL addShoppingItem('${user.toString()}',${list},${icount},'${item.toString()}');`);
       res.redirect('/l/'+list);
    }
