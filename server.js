@@ -345,11 +345,9 @@ app.post('/l/delItem/:list', function (req, res) {
    } else {
       var list = req.params.list;
       var items = req.body.items;
-      var query = `CALL deleteShoppingItem(${items[0]});`;
-      for (i = 1; i < items.length; i++) {
-         query += ` OR sItem_id = ${items[i]}`;
+      for (i = 0; i < items.length; i++) {
+         con.query(`CALL deleteShoppingItem(${items[i]});`);
       }
-      con.query(query+`;`);
       res.redirect('/l/'+list);
    }
 });
