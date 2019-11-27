@@ -385,7 +385,10 @@ app.post('/:other?/addList', function (req, res) {
       var color = mysql.escape(req.body.color);
       console.log(list+", "+color);
       con.query(`CALL addList(${list.toString()},${user.toString()},${color.toString()});`);
-      res.redirect('/');
+      con.query(`SELECT * FROM ShoppingList WHERE Owner = ${user.toString()} ORDER BY last_change DESC;`, function(err,data) {
+	console.log(data[0].list_id);
+	res.redirect('/l/'+data[0].list_id);
+    });
    }
 });
 
