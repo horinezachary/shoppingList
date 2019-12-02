@@ -1,3 +1,18 @@
+<div class="list alert alert-primary" style="width: 95%; max-width: 50rem; margin-bottom: 1rem;" role="alert">
+   <ul style="margin-bottom:0rem; padding-left:0rem; list-style-type:none;">
+      <li>Welcome to your list! Here you can add things to your list using the text box below.</li>
+      <li>You can click or tap on an item to cross it off.</li>
+      <li>When you are done, you can click the clear button to remove the crossed off items from your list.</li>
+   </ul>
+   <hr>
+   <div>
+      <input style="display:inline-block" type="checkbox" name="dontshow" value="Show"> Don't Show this again
+      <button style="display:inline-block" type="button" class="close fr" data-dismiss="alert" aria-label="Close">
+         <span aria-hidden="true">Close</span>
+      </button>
+   </div>
+</div>
+
 <div class="card list" id="list_{{list.0.list_id}}" style="width: 95%; max-width: 30rem; background:#{{list.0.listColor}};">
    <div class="card-body listHeader">
       <h3 class="font-weight-bold mb-3 list-name">{{list.0.list_name}}</h3>
