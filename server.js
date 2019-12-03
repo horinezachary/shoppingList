@@ -1,9 +1,9 @@
 var mysql = require('mysql');
 
 var con = mysql.createConnection({
-   host: "localhost",
-   user: "app",
-   password: "8eKta0TjuU6Pijfd",
+   host: "horine.dev",
+   user: "devUser",
+   password: "68l80pgeAP3ocAOy",
    database: "loris_kitchen"
 });
 
@@ -116,6 +116,7 @@ app.post('/login', function(req, res) {
                req.session.fname = user[0].fname;
                req.session.lname = user[0].lname;
                req.session.email = user[0].email;
+               req.session.showAlert = user[0].showAlert;
                res.redirect('/');
             } else {
                res.render('login.handlebars', {
@@ -280,6 +281,11 @@ app.get('/l/:list', function (req, res, next) {
    } else {
       var user = req.session.uname;
       var list = req.params.list;
+      var showAlert = req.session.showAlert;
+      console.log(showAlert);
+      if (showAlert == 0) {
+         showAlert = false;
+      }
       list = mysql.escape(list);
       con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList.list_id = ${list}`,
          function (err, singleListData) {
@@ -310,13 +316,32 @@ app.get('/l/:list', function (req, res, next) {
                      autofillItem: autofillData,
                      listItem: listItemData,
                      headerlists: listData,
-                     buttonDisabled: buttonDisabled
+                     buttonDisabled: buttonDisabled,
+                     showAlert: showAlert
                });
                });
                });
                });
             }
       });
+   }
+});
+
+app.post('/l/showAlert/:list', function (req, res) {
+
+   console.log("post");
+   if (!req.session.uname) {
+      res.redirect('/login');
+   } else {
+      var user = req.session.uname;
+      var dontshow = req.body.dontshow;
+      var list = req.params.list;
+      console.log(dontshow);
+      if (dontshow == 'Show') {
+         req.session.showAlert = 0;
+         con.query(`UPDATE User SET showAlert = FALSE WHERE uname = '${user.toString()}';`);
+      }
+      res.redirect('/l/'+list);
    }
 });
 
