@@ -282,6 +282,8 @@ app.get('/l/:list', function (req, res, next) {
       var user = req.session.uname;
       var list = req.params.list;
       var showAlert = req.session.showAlert;
+      var fname = req.session.fname;
+      var lname = req.session.lname;
       console.log(showAlert);
       if (showAlert == 0) {
          showAlert = false;
@@ -312,6 +314,8 @@ app.get('/l/:list', function (req, res, next) {
                console.log("Header Lists: " + listData);
                   res.status(200).render('shoppingList', {
                      title: singleListData[0].list_name,
+                     fname: fname,
+                     lname: lname,
                      list: singleListData,
                      autofillItem: autofillData,
                      listItem: listItemData,
