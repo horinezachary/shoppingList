@@ -1,9 +1,9 @@
 var mysql = require('mysql');
 
 var con = mysql.createConnection({
-   host: "165.227.28.206",
-   user: "devUser",
-   password: "68l80pgeAP3ocAOy",
+   host: "localhost",
+   user: "app",
+   password: "8eKta0TjuU6Pijfd",
    database: "loris_kitchen"
 });
 
@@ -37,8 +37,8 @@ app.use(bodyParser.json());
 app.use(session({
   cookieName: 'session',
   secret: 'dQ46q4AlvniGACyALReI',
-  duration: 24 * 60 * 60 * 1000, //1 day
-  activeDuration: 24 * 60 * 60 * 1000,
+  duration: 365 * 24 * 60 * 60 * 1000, //1 day
+  activeDuration: 365 * 24 * 60 * 60 * 1000,
 }));
 
 let transporter = nodemailer.createTransport({
@@ -116,6 +116,7 @@ app.post('/login', function(req, res) {
                req.session.fname = user[0].fname;
                req.session.lname = user[0].lname;
                req.session.email = user[0].email;
+               req.session.showAlert = user[0].showAlert;
                res.redirect('/');
             } else {
                res.render('login.handlebars', {
@@ -280,8 +281,14 @@ app.get('/l/:list', function (req, res, next) {
    } else {
       var user = req.session.uname;
       var list = req.params.list;
+      var showAlert = req.session.showAlert;
+      var fname = req.session.fname;
+      var lname = req.session.lname;
+      console.log(showAlert);
+      if (showAlert == 0) {
+         showAlert = false;
+      }
       list = mysql.escape(list);
-      console.log(req.params.user);
       con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList.list_id = ${list}`,
          function (err, singleListData) {
             if (singleListData.length == 0){
@@ -304,20 +311,41 @@ app.get('/l/:list', function (req, res, next) {
 
                con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}';`,
                   function (err, listData) {
-               console.log("Result: " + listData);
+               console.log("Header Lists: " + listData);
                   res.status(200).render('shoppingList', {
                      title: singleListData[0].list_name,
+                     fname: fname,
+                     lname: lname,
                      list: singleListData,
                      autofillItem: autofillData,
                      listItem: listItemData,
                      headerlists: listData,
-                     buttonDisabled: buttonDisabled
+                     buttonDisabled: buttonDisabled,
+                     showAlert: showAlert
                });
                });
                });
                });
             }
       });
+   }
+});
+
+app.post('/l/showAlert/:list', function (req, res) {
+
+   console.log("post");
+   if (!req.session.uname) {
+      res.redirect('/login');
+   } else {
+      var user = req.session.uname;
+      var dontshow = req.body.dontshow;
+      var list = req.params.list;
+      console.log(dontshow);
+      if (dontshow == 'Show') {
+         req.session.showAlert = 0;
+         con.query(`UPDATE User SET showAlert = FALSE WHERE uname = '${user.toString()}';`);
+      }
+      res.redirect('/l/'+list);
    }
 });
 
@@ -328,12 +356,12 @@ app.post('/l/addItem/:list', function (req, res) {
       var user = req.session.uname;
       var list = req.params.list;
       var icount = req.body.icount;
-      console.log("\'"+icount+"\'");
+      console.log("icount: \'"+icount+"\'");
       if (!icount) {
          icount = 'NULL';
       }
       var item = req.body.itemName;
-      console.log(list+", "+icount+", "+item);
+      console.log(user+", "+list+", "+icount+", "+item);
       con.query(`CALL addShoppingItem('${user.toString()}',${list},${icount},'${item.toString()}');`);
       res.redirect('/l/'+list);
    }
@@ -345,11 +373,9 @@ app.post('/l/delItem/:list', function (req, res) {
    } else {
       var list = req.params.list;
       var items = req.body.items;
-      var query = `DELETE FROM ShoppingList_Item WHERE sItem_id = ${items[0]}`;
-      for (i = 1; i < items.length; i++) {
-         query += ` OR sItem_id = ${items[i]}`;
+      for (i = 0; i < items.length; i++) {
+         con.query(`CALL deleteShoppingItem(${items[i]});`);
       }
-      con.query(query+`;`);
       res.redirect('/l/'+list);
    }
 });
@@ -363,8 +389,7 @@ app.post('/l/crossItem/:list', function (req, res) {
       var items = req.body.items;
       var check = req.body.check;
       console.log(check);
-      var query = `UPDATE ShoppingList_Item SET checked = ${check} WHERE sItem_id = ${items}`;
-      con.query(query+`;`);
+      con.query(`CALL setChecked(${items},${check});`);
       res.redirect('/l/'+list);
    }
 });
@@ -375,7 +400,7 @@ app.post('/l/delList/', function (req, res) {
    } else {
       var list = req.body.list;
       console.log(list);
-      con.query(`DELETE FROM ShoppingList WHERE list_id = ${list};`);
+      con.query(`CALL deleteList(${list});`);
       res.redirect('/');
    }
 });
@@ -388,8 +413,11 @@ app.post('/:other?/addList', function (req, res) {
       var list = mysql.escape(req.body.listName);
       var color = mysql.escape(req.body.color);
       console.log(list+", "+color);
-      con.query(`INSERT INTO ShoppingList (list_name,owner,listColor) VALUES (${list.toString()},${user.toString()},${color.toString()});`);
-      res.redirect('/');
+      con.query(`CALL addList(${list.toString()},${user.toString()},${color.toString()});`);
+      con.query(`SELECT * FROM ShoppingList WHERE Owner = ${user.toString()} ORDER BY last_change DESC;`, function(err,data) {
+	console.log(data[0].list_id);
+	res.redirect('/l/'+data[0].list_id);
+    });
    }
 });
 
@@ -466,7 +494,7 @@ app.post('/:editList/editList/:list', function (req, res) {
       var list = mysql.escape(req.body.listName);
       var color = mysql.escape(req.body.color);
       console.log(listid+", "+list+", "+color);
-      con.query(`UPDATE ShoppingList SET list_name = ${list}, listColor = ${color} WHERE list_id = ${listid};`);
+      con.query(`CALL editList(${listid},${list},${color});`);
       res.redirect('/');
    }
 });
