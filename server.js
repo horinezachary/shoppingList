@@ -374,7 +374,7 @@ app.post('/l/delItem/:list', function (req, res) {
       var list = req.params.list;
       var items = req.body.items;
       for (i = 0; i < items.length; i++) {
-         con.query(`CALL deleteShoppingItem(${items[i]});`);
+         con.query(`CALL deleteShoppingItem(${items[i]}, ${list});`);
       }
       res.redirect('/l/'+list);
    }
