@@ -19,7 +19,7 @@ var nodemailerhbs = require('nodemailer-express-handlebars');
 var fs = require('fs');
 
 var app = express();
-var port = process.env.PORT || 3000;
+var port = process.env.PORT || config.server.port;
 app.engine('handlebars', exphbs({ defaultLayout: 'main' }));
 app.set('view engine', 'handlebars');
 
