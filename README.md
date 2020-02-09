@@ -13,3 +13,12 @@
    This information is incredibly valuable and much appreciated!
    <p>Thanks,</p>
    Zachary Horine
+
+### Development:
+   When developing, you will need to insert your credentials in a file named config.js. There is an example file to follow for format (exampleconfig.js). It should include the following, where user and pass are your username and password:
+   ```
+   host: "sql_server",
+   user: "user",
+   password: "pass",
+   database: "recipes"
+   ```
