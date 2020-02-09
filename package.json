@@ -14,6 +14,7 @@
     "url": "git://github.com/horinezachary/shoppingList.git"
   },
   "dependencies": {
+    "bcrypt": "^3.0.8",
     "body-parser": "^1.19.0",
     "client-sessions": "^0.8.0",
     "crypto": "^1.0.1",

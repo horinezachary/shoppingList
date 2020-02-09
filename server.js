@@ -12,6 +12,8 @@ var bodyParser = require('body-parser');
 var session = require('client-sessions');
 var md5 = require('md5');
 var crypto = require('crypto');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 var nodemailer = require('nodemailer');
 var nodemailerhbs = require('nodemailer-express-handlebars');
@@ -89,6 +91,14 @@ app.get('/home', function (req, res, next) {
    }
 });
 
+function updatePassword(uname,passIn) {
+   bcrypt.hash(passIn, saltRounds, function(err, hash) {
+      //store hash
+      con.query(`UPDATE User SET password = '${hash}', salt='', hash='BCR' WHERE uname = ${uname.toString()};`);
+      console.log(hash);
+   });
+}
+
 app.post('/login', function(req, res) {
    var uname = mysql.escape(req.body.username);
    con.query(`SELECT * FROM User WHERE uname = ${uname.toString()};`,
@@ -102,15 +112,48 @@ app.post('/login', function(req, res) {
          } else {
             var passIn = mysql.escape(req.body.password);
             var salt = user[0].salt;
-            var passwordHash = md5(passIn+salt);
-            if (passwordHash === user[0].password) {
-               // sets a cookie with the user's info
-               req.session.uname = user[0].uname;
-               req.session.fname = user[0].fname;
-               req.session.lname = user[0].lname;
-               req.session.email = user[0].email;
-               req.session.showAlert = user[0].showAlert;
-               res.redirect('/');
+            var passwordHash;
+            if (user[0].hash == "MD5") {
+               var passwordHash = md5(passIn+salt);
+               if (passwordHash === user[0].password) {
+                  //convert to BCR
+                  updatePassword("\'"+user[0].uname+"\'",passIn);
+                  //set values
+                  req.session.uname = user[0].uname;
+                  req.session.fname = user[0].fname;
+                  req.session.lname = user[0].lname;
+                  req.session.email = user[0].email;
+                  req.session.showAlert = user[0].showAlert;
+                  //go home
+                  res.redirect('/');
+               } else {
+                  res.render('login.handlebars', {
+                     title: 'Login',
+                     layout: 'bare',
+                     error: 'Invalid username or password.'
+                  });
+               }
+            }
+            else if (user[0].hash == "BCR") {
+               bcrypt.compare(passIn, user[0].password, function(err, result) {
+                  if (result == true) {
+                     //set values
+                     req.session.uname = user[0].uname;
+                     req.session.fname = user[0].fname;
+                     req.session.lname = user[0].lname;
+                     req.session.email = user[0].email;
+                     req.session.showAlert = user[0].showAlert;
+                     //go home
+                     res.redirect('/');
+                  }
+                  if (result == false) {
+                     res.render('login.handlebars', {
+                        title: 'Login',
+                        layout: 'bare',
+                        error: 'Invalid username or password.'
+                     });
+                  }
+               });
             } else {
                res.render('login.handlebars', {
                   title: 'Login',
@@ -161,16 +204,13 @@ app.post('/register', function(req, res) {
                error: 'Passwords must match.'
             });
          } else {
-            //generate salt
-            var salt = crypto.randomBytes(16).toString('hex');
-            console.log(salt);
-            //hash password
-            var passwordHash = md5(pass1+salt);
-            con.query(`INSERT INTO User (uname,fname,lname,email,password,salt)
-                        VALUES (${uname.toString()},${fname.toString()},${lname.toString()},${email.toString()},'${passwordHash.toString()}','${salt.toString()}');`,
-               function (err, userData) {
-                  console.log(err);
-               });
+            bcrypt.hash(pass1, saltRounds, function(err, hash) {
+               con.query(`INSERT INTO User (uname,fname,lname,email,password,hash)
+                           VALUES (${uname.toString()},${fname.toString()},${lname.toString()},${email.toString()},'${hash.toString()}','BCR');`,
+                  function (err, userData) {
+                     console.log(err);
+                  });
+            });
 
             req.session.uname = req.body.username;
             req.session.fname = req.body.fname;
@@ -250,13 +290,7 @@ app.post('/updatePassword/:token', function(req, res) {
       con.query(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`,
          function (err, reset) {
             console.log(reset.length);
-            //generate salt
-            var salt = crypto.randomBytes(8).toString('hex');
-            console.log(salt);
-            //hash password
-            var passwordHash = md5(password+salt);
-            console.log(passwordHash);
-            con.query(`UPDATE User SET password = '${passwordHash}', salt='${salt}' WHERE uname = '${reset[0].uname.toString()}';`);
+            updatePassword(reset[0].uname,password)
             con.query(`DELETE FROM PasswordResetToken WHERE uname = '${reset[0].uname.toString()}';`);
 
             req.session.uname = req.body.username;
@@ -424,9 +458,10 @@ app.post('/editInfo', function (req, res) {
       var email = mysql.escape(req.body.email);
       var pass1 = mysql.escape(req.body.password);
       var pass2 = mysql.escape(req.body.password2);
-      console.log(req.body.fname);
-      console.log(lname);
-      console.log(email);
+      console.log("F: "+fname);
+      console.log("L: "+lname);
+      console.log("E: "+email);
+      console.log("U: "+user);
       if (req.body.fname && req.body.lname){
          console.log("update name");
          con.query(`UPDATE User SET fname = ${fname}, lname = ${lname} WHERE uname = ${user};`);
@@ -465,13 +500,8 @@ app.post('/editInfo', function (req, res) {
             con.query(`INSERT INTO PasswordResetToken (uname,token) VALUES (${user}, ${mysql.escape(token.toString())});`);
             res.redirect('/passwordReset/'+token);
          } else {
-            //generate salt
-            var salt = crypto.randomBytes(8).toString('hex');
-            console.log(salt);
-            //hash password
-            var passwordHash = md5(pass1+salt);
-            console.log(passwordHash);
-            con.query(`UPDATE User SET password = '${passwordHash}', salt='${salt}' WHERE uname = ${user};`);
+            //console.log(user);
+            updatePassword(user,pass1);
             res.redirect('/myAccount');
          }
       }
