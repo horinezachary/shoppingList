@@ -1,18 +1,9 @@
 var mysql = require('mysql');
 var env = process.env.NODE_ENV || 'development';
 var config = require('./config')[env];
+var con = require('./sqlConfig');
 
-var con = mysql.createConnection({
-   host: "localhost",
-   user: "app",
-   password: "8eKta0TjuU6Pijfd",
-   database: "loris_kitchen"
-});
-
-con.connect(function(err) {
-   if (err) throw err;
-   console.log("Connected to mysql!");
-});
+con.start(config.database);
 
 var path = require('path');
 var express = require('express');
@@ -417,9 +408,9 @@ app.post('/:other?/addList', function (req, res) {
       console.log(list+", "+color);
       con.query(`CALL addList(${list.toString()},${user.toString()},${color.toString()});`);
       con.query(`SELECT * FROM ShoppingList WHERE Owner = ${user.toString()} ORDER BY last_change DESC;`, function(err,data) {
-	console.log(data[0].list_id);
-	res.redirect('/l/'+data[0].list_id);
-    });
+         console.log(data[0].list_id);
+         res.redirect('/l/'+data[0].list_id);
+      });
    }
 });
 
