@@ -9,17 +9,23 @@ function query(sql,callback) {
    pool.getConnection(function(err, connection) {
       if(err) {
          console.log(err);
-         callback(true);
+         if (callback) {
+            callback(true);
+         }
          return;
       }
       connection.query(sql, function(err, results) {
          connection.release(); // always put connection back in pool after last query
          if(err) {
             console.log(err);
-            callback(true);
+            if (callback) {
+               callback(true);
+            }
             return;
          }
-         callback(false, results);
+         if (callback) {
+            callback(false, results);
+         }
       });
    });
 }
