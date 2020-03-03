@@ -99,6 +99,31 @@ function updatePassword(uname,passIn) {
    });
 }
 
+//api = T/F (cvame from api?)
+//pass = did pass check?
+function setCookie(api, pass, uname, fname, lname, email, showAlert) {
+   if (pass == true) {
+      //set values
+      req.session.uname = uname;
+      req.session.fname = fname;
+      req.session.lname = lname;
+      req.session.email = email;
+      req.session.showAlert = showAlert;
+      if (!api) {
+         //go home
+         res.redirect('/');
+      } else { //api == true
+         //generate token and send
+      }
+   } else {
+      res.render('login.handlebars', {
+         title: 'Login',
+         layout: 'bare',
+         error: 'Invalid username or password.'
+      });
+   }
+}
+
 app.post('/login', function(req, res) {
    var uname = mysql.escape(req.body.username);
    con.query(`SELECT * FROM User WHERE uname = ${uname.toString()};`,
@@ -118,41 +143,22 @@ app.post('/login', function(req, res) {
                if (passwordHash === user[0].password) {
                   //convert to BCR
                   updatePassword("\'"+user[0].uname+"\'",passIn);
-                  //set values
-                  req.session.uname = user[0].uname;
-                  req.session.fname = user[0].fname;
-                  req.session.lname = user[0].lname;
-                  req.session.email = user[0].email;
-                  req.session.showAlert = user[0].showAlert;
-                  //go home
-                  res.redirect('/');
-               } else {
-                  res.render('login.handlebars', {
-                     title: 'Login',
-                     layout: 'bare',
-                     error: 'Invalid username or password.'
-                  });
-               }
+                }
+                setCookie(false,passwordHash === user[0].password,
+                                user[0].uname,
+                                user[0].fname,
+                                user[0].lname,
+                                user[0].email,
+                                user[0].showAlert);
             }
             else if (user[0].hash == "BCR") {
                bcrypt.compare(passIn, user[0].password, function(err, result) {
-                  if (result == true) {
-                     //set values
-                     req.session.uname = user[0].uname;
-                     req.session.fname = user[0].fname;
-                     req.session.lname = user[0].lname;
-                     req.session.email = user[0].email;
-                     req.session.showAlert = user[0].showAlert;
-                     //go home
-                     res.redirect('/');
-                  }
-                  if (result == false) {
-                     res.render('login.handlebars', {
-                        title: 'Login',
-                        layout: 'bare',
-                        error: 'Invalid username or password.'
-                     });
-                  }
+                  setCookie(false,result,
+                                  user[0].uname,
+                                  user[0].fname,
+                                  user[0].lname,
+                                  user[0].email,
+                                  user[0].showAlert);
                });
             } else {
                res.render('login.handlebars', {
