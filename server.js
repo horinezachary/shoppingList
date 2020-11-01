@@ -72,7 +72,7 @@ app.get('/', function (req, res, next) {
 });
 
 
-app.get('/home', function (req, res, next) {
+app.get('/home', async function (req, res, next) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
@@ -304,7 +304,7 @@ app.post('/updatePassword/:token', function(req, res) {
    }
 });
 
-app.get('/l/:list', function (req, res, next) {
+app.get('/l/:list', async function (req, res, next) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
@@ -452,7 +452,7 @@ app.post('/:other?/addList', function (req, res) {
    }
 });
 
-app.post('/editInfo', function (req, res) {
+app.post('/editInfo', async function (req, res) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
