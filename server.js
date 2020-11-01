@@ -76,7 +76,7 @@ app.get('/home', async function (req, res, next) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
-      const [colors] = await asyncQuery(`SELECT * FROM colors`);
+      const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
       var user = req.session.uname;
       console.log(user);
       let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}'`,
@@ -308,7 +308,7 @@ app.get('/l/:list', async function (req, res, next) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
-      const [colors] = await asyncQuery(`SELECT * FROM colors`);
+      const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
       var user = req.session.uname;
       var list = req.params.list;
       var showAlert = req.session.showAlert;
@@ -456,7 +456,7 @@ app.post('/editInfo', async function (req, res) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
-      const [colors] = await asyncQuery(`SELECT * FROM colors`);
+      const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
       var user = mysql.escape(req.session.uname);
       var fname = mysql.escape(req.body.fname);
       var lname = mysql.escape(req.body.lname);
@@ -532,7 +532,7 @@ app.get('/:other?/myAccount', async function (req, res, next) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
-      const [colors] = await asyncQuery(`SELECT * FROM colors`);
+      const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
       var user = mysql.escape(req.session.uname);
       console.log(user);
       let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`,

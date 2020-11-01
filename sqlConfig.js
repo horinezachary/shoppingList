@@ -48,5 +48,9 @@ module.exports = {
    },
    query: function(sql,callback) {
       return query(sql,callback);
+   },
+   asyncQuery: function(sql,callback) {
+      return asyncQuery(sql,callback);
    }
+
 }
