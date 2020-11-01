@@ -22,7 +22,7 @@
     "express": "^4.17.1",
     "express-handlebars": "^3.1.0",
     "fs": "0.0.1-security",
-    "jquery": "^3.4.1",
+    "jquery": "^3.5.0",
     "md5": "^2.2.1",
     "mysql": "^2.18.1",
     "node-pre-gyp": "^0.14.0",
