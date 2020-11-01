@@ -68,7 +68,7 @@ $('#editModal').on('show.bs.modal', function (event) {
    var name = button.data('name');
    var color = button.data('listcolor');
    var modal = $(this);
-   var colorbuttons = document.getElementsByClassName('editRadio');
+   var colorbuttons = $('#editModal :radio');
    for (i = 0; i < colorbuttons.length; i++) {
       console.log(colorbuttons[i].value);
       if (colorbuttons[i].value == color) {

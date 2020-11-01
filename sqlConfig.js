@@ -30,6 +30,18 @@ function query(sql,callback) {
    });
 }
 
+//called with: const [results] = await asyncQuery(query, [sourceName, 0]);
+function asyncQuery(query, values) {
+  return new Promise((resolve, reject) => {
+    pool.query(query, values, (error, results, fields) => {
+      if (error) {
+        reject(error);
+      }
+      resolve([results, fields]);
+    });
+  });
+}
+
 module.exports = {
    start: function(cfg) {
       return start(cfg);

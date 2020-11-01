@@ -76,6 +76,7 @@ app.get('/home', function (req, res, next) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
+      const [colors] = await asyncQuery(`SELECT * FROM colors`);
       var user = req.session.uname;
       console.log(user);
       let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}'`,
@@ -85,7 +86,8 @@ app.get('/home', function (req, res, next) {
             uname: req.session.uname,
             fname: req.session.fname,
             lname: req.session.lname,
-            headerlists: listData
+            headerlists: listData,
+            colors: colors
          });
       });
    }
@@ -306,6 +308,7 @@ app.get('/l/:list', function (req, res, next) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
+      const [colors] = await asyncQuery(`SELECT * FROM colors`);
       var user = req.session.uname;
       var list = req.params.list;
       var showAlert = req.session.showAlert;
@@ -347,6 +350,7 @@ app.get('/l/:list', function (req, res, next) {
                      autofillItem: autofillData,
                      listItem: listItemData,
                      headerlists: listData,
+                     colors: colors,
                      buttonDisabled: buttonDisabled,
                      showAlert: showAlert
                });
@@ -452,6 +456,7 @@ app.post('/editInfo', function (req, res) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
+      const [colors] = await asyncQuery(`SELECT * FROM colors`);
       var user = mysql.escape(req.session.uname);
       var fname = mysql.escape(req.body.fname);
       var lname = mysql.escape(req.body.lname);
@@ -481,6 +486,7 @@ app.post('/editInfo', function (req, res) {
                            lname: req.session.lname,
                            email: req.session.email,
                            headerlists: listData,
+                           colors: colors,
                            emailerror: 'The email you entered is already in use!'
                         });
                   });
@@ -526,6 +532,7 @@ app.get('/:other?/myAccount', function (req, res, next) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
+      const [colors] = await asyncQuery(`SELECT * FROM colors`);
       var user = mysql.escape(req.session.uname);
       console.log(user);
       let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`,
@@ -536,7 +543,8 @@ app.get('/:other?/myAccount', function (req, res, next) {
             fname: req.session.fname,
             lname: req.session.lname,
             email: req.session.email,
-            headerlists: listData
+            headerlists: listData,
+            colors: colors
          });
       });
    }

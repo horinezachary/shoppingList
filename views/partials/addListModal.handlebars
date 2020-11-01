@@ -12,46 +12,9 @@
             <div class="modal-body">
                <input type="text" autocomplete="off" class="form-control" name="listName" placeholder="List Name" autofocus required>
                <div class="radio-buttons ml-5 mt-4 mb-0">
-                  <label class="container">
-                    <input type="radio" name="color" value="e04331" checked="checked">
-                    <span id="color1" class="checkmark"></span>
-                  </label>
-                  <label class="container">
-                    <input type="radio" name="color" value="c75f0a">
-                    <span id="color2" class="checkmark"></span>
-                  </label>
-                  <label class="container">
-                    <input type="radio" name="color" value="d69620">
-                    <span id="color3" class="checkmark"></span>
-                  </label>
-                  <label class="container">
-                    <input type="radio" name="color" value="12ad0c">
-                    <span id="color4" class="checkmark"></span>
-                  </label>
-                  <label class="container">
-                    <input type="radio" name="color" value="4287f5">
-                    <span id="color5" class="checkmark"></span>
-                  </label>
-                  <label class="container">
-                    <input type="radio" name="color" value="ad42f5">
-                    <span id="color6" class="checkmark"></span>
-                  </label>
-                  <label class="container">
-                    <input type="radio" name="color" value="0026FF">
-                    <span id="color7" class="checkmark"></span>
-                  </label>
-                  <label class="container">
-                    <input type="radio" name="color" value="FFD800">
-                    <span id="color8" class="checkmark"></span>
-                  </label>
-                  <label class="container">
-                    <input type="radio" name="color" value="2DFF38">
-                    <span id="color9" class="checkmark"></span>
-                  </label>
-                  <label class="container">
-                    <input type="radio" name="color" value="FB21FF">
-                    <span id="color10" class="checkmark"></span>
-                  </label>
+                 {{#each colors}}
+                 {{>colorButton}}
+                 {{/each}}
                </div>
             </div>
             <div class="modal-footer" name="color">
