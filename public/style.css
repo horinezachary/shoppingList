@@ -75,38 +75,6 @@ body{
    margin-left: 1rem;
 }
 
-#color1 {
-   background-color: #e04331;
-}
-#color2 {
-   background-color: #c75f0a;
-}
-#color3 {
-   background-color: #d69620;
-}
-#color4 {
-   background-color: #12ad0c;
-}
-#color5 {
-   background-color: #4287f5;
-}
-#color6 {
-   background-color: #ad42f5;
-}
-#color7 {
-   background-color: #0026FF;
-}
-#color8 {
-   background-color: #FFD800;
-}
-#color9 {
-   background-color: #2DFF38;
-}
-#color10 {
-   background-color: #FB21FF;
-}
-
-
 .radio-buttons {
    display: inline-block;
 }
