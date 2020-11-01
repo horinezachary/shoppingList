@@ -528,7 +528,7 @@ app.post('/:editList/editList/:list', function (req, res) {
    }
 });
 
-app.get('/:other?/myAccount', function (req, res, next) {
+app.get('/:other?/myAccount', async function (req, res, next) {
    if (!req.session.uname) {
       res.redirect('/login');
    } else {
