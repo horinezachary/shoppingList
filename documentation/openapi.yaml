@@ -109,7 +109,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
+  /users/forgotpassword:
+    post:
+      summary: send a password reset request to the email given in the request body.
+      description: >
+        Returns nothing, but sets a key aside and sends an email to the specified address if an account exists.
+      operationId: sendForgotPassword
+      tags:
+        - Users
+      requestBody:
+        required: true
+        description: >
+          provide a list name and color, the owner id is pulled from url
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/List'
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Email not found (not used because it would give away information)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /users/{id}:
     parameters:
       - name: id
@@ -151,7 +175,7 @@ paths:
     patch:
       summary: Update data for the specified user.
       description: >
-        Performs a partial update on the data for the user.
+        Performs a partial update on the data for the user. Password can only be updated via the passwordUpdate POST request.
       operationId: updateUserById
       tags:
         - Users
@@ -286,6 +310,68 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Specified User `id` not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /users/{id}/passwordReset:
+    parameters:
+      - name: id
+        in: path
+        description: >
+          Unique username of a User.
+        schema:
+          type: string
+        example: "janedoe"
+        required: true
+    post:
+      summary: Reset a user's password, provided a valid auth token is given
+      description: >
+        Authenticate a specific User with their email address and password.
+      operationId: setUserPassword
+      tags:
+        - Users
+      requestBody:
+        required: true
+        description: >
+          Email address and new plain-text password for the User who's password is being updated.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+            example:
+              email: example@horine.dev
+              password: password
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: >
+                      A JWT authentication token.
+                    example: aaaaaaaa.bbbbbbbb.cccccccc
+        '400':
+          description: >
+            The request body was either not present or did not contain all of the required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: >
+            The specified credentials were invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: >
+            An internal server error occurred.
           content:
             application/json:
               schema:
