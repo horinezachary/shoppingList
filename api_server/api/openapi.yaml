@@ -1,0 +1,666 @@
+openapi: 3.0.0
+info:
+  title: Lori's List API
+  description: This API is used to interface with the Lori's List database
+  version: 1.0.0
+servers:
+- url: https://virtserver.swaggerhub.com/horinezachary/LorisList/1.0.0
+  description: SwaggerHub API Auto Mocking
+security:
+- application:
+  - read
+  - write
+paths:
+  /users:
+    post:
+      tags:
+      - Users
+      summary: Create a new User.
+      description: |
+        Create and store a new application User with specified data and adds it to the application's database.
+      operationId: createUser
+      requestBody:
+        description: A User object.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+        required: true
+      responses:
+        "201":
+          description: New User successfully added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/inline_response_201'
+        "400":
+          description: |
+            The request body was either not present or did not contain a valid User object.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Users
+  /users/login:
+    post:
+      tags:
+      - Users
+      summary: Log in a User.
+      description: |
+        Authenticate a specific User with their email address and password.
+      operationId: authenticateUser
+      requestBody:
+        description: |
+          Email address and plain-text password for the User being authenticated.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+            example:
+              email: example@horine.dev
+              password: password
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/inline_response_200'
+        "400":
+          description: |
+            The request body was either not present or did not contain all of the required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "401":
+          description: |
+            The specified credentials were invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: |
+            An internal server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Users
+  /users/{id}:
+    get:
+      tags:
+      - Users
+      summary: Fetch data about a specific User.
+      description: |
+        Returns information about the specified User.
+      operationId: getUserByUsername
+      parameters:
+      - name: id
+        in: path
+        description: |
+          Unique username of a User.
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: janedoe
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified User `id` not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Users
+  /users/{id}/lists:
+    get:
+      tags:
+      - Users
+      summary: Fetch all of a user's lists
+      description: |
+        Returns a JSON object with an array of lists (without list elements)
+      operationId: getUserLists
+      parameters:
+      - name: id
+        in: path
+        description: |
+          Unique username of a user
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: janedoe
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified User `id` not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Users
+    post:
+      tags:
+      - Users
+      summary: Add a new list owned by the given user
+      description: |
+        Add a list with the given name and color, with the owner id given
+      operationId: addUserList
+      parameters:
+      - name: id
+        in: path
+        description: |
+          Unique username of a user
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: janedoe
+      requestBody:
+        description: |
+          provide a list name and color, the owner id is pulled from url
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/List'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified User `id` not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Users
+  /lists:
+    get:
+      tags:
+      - Lists
+      summary: Fetch all lists a user has access to
+      description: |
+        Returns a JSON object with an array of Userlists and sharedLists (without list elements)
+      operationId: getLists
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: |
+            The user has no lists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Lists
+  /lists/{id}:
+    get:
+      tags:
+      - Lists
+      summary: Fetch a specific list
+      description: |
+        Returns a JSON object with the list specified, including list elements
+      operationId: getDetailedList
+      parameters:
+      - name: id
+        in: path
+        description: |
+          id of the requested list
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: integer
+        example: "123456"
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailedList'
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: |
+            The user has no lists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Lists
+    delete:
+      tags:
+      - Lists
+      summary: Remove a specific List from the database.
+      description: |
+        Completely removes the data for the specified list, including all list elements.  Only an authenticated whose ID matches the `owner` of the List with the given `listId` can delete a List.
+      operationId: removeListById
+      responses:
+        "204":
+          description: Success
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified List `id` not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Lists
+    patch:
+      tags:
+      - Lists
+      summary: Update data for the specified list.
+      description: |
+        Performs a partial update on the data for the list.
+      operationId: updateListById
+      requestBody:
+        description: |
+          Partial updates to be applied to the specified list.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/List'
+        required: true
+      responses:
+        "200":
+          description: Success
+        "400":
+          description: |
+            The request body was either not present or did not contain any fields related to List objects.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified List `id` not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Lists
+  /list/{id}/item:
+    post:
+      tags:
+      - Items
+      summary: Add a new list Item to the given List
+      description: |
+        Add an Item to the list with the given list id
+      operationId: addListItem
+      parameters:
+      - name: id
+        in: path
+        description: |
+          id of the list to add the item to
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: integer
+        example: "123456"
+      requestBody:
+        description: |
+          provide an item quantity (optional) and item name
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Item'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified List `id` not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Items
+    delete:
+      tags:
+      - Items
+      summary: Remove a specific Item from the database.
+      description: |
+        Completely removes the data for the specified Item, and removes it's link to the list.  Only an authenticated User with edit access to the List with the given `listId`.
+      operationId: removeListItemById
+      responses:
+        "204":
+          description: Success
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified Assignment `id` not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Items
+  /list/{id}/share:
+    post:
+      tags:
+      - Lists
+      summary: Add a new share record for the given list
+      description: |
+        Share the list with the given id with the user
+      operationId: ShareListById
+      parameters:
+      - name: id
+        in: path
+        description: |
+          id of the list to share
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: integer
+        example: "123456"
+      requestBody:
+        description: |
+          provide a user and level to share
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/body'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/List'
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified User `id` not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Lists
+    delete:
+      tags:
+      - Lists
+      summary: Remove the sharing permissions for a given user
+      description: |
+        Share the list with the given id with the user
+      operationId: UnShareListById
+      parameters:
+      - name: id
+        in: path
+        description: |
+          id of the list to add the item to
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: integer
+        example: "123456"
+      x-swagger-router-controller: Lists
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        uname:
+          type: string
+          description: Username of the User. This is required to be unique among all
+            Users.
+          example: janedoe
+        fname:
+          type: string
+          description: First name of the User.
+          example: Jane
+        lname:
+          type: string
+          description: Last name of the User.
+          example: Doe
+        email:
+          type: string
+          description: |
+            Email address for the User.  This is required to be unique among all Users.
+          example: example@horine.dev
+        password:
+          type: string
+          description: |
+            The User's password (plaintext on login/register, hash on server request).  This is generated when creating a new User and checked against when logging in.
+          example: password or '$2a$04$dEeAqgYktiz8nEEWMC8e4u2Ff/QWkfDR4TQbpKcdcbMr.a3gV89vy'
+        last_web_change:
+          type: integer
+          description: Time of last change made in the database. used to determine
+            input validity, and which piece of data is newer.
+        showAlert:
+          type: boolean
+          description: Used for determining wether or not to show the tutorial box
+          example: true
+      description: |
+        An object representing information about an application user.
+      example:
+        fname: Jane
+        lname: Doe
+        password: password or '$2a$04$dEeAqgYktiz8nEEWMC8e4u2Ff/QWkfDR4TQbpKcdcbMr.a3gV89vy'
+        uname: janedoe
+        last_web_change: 0
+        showAlert: true
+        email: example@horine.dev
+    List:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int6
+          example: 123456
+        name:
+          type: string
+          description: The name of the list
+          example: Shopping List
+        owner:
+          type: string
+          description: the username of the list owner
+          example: janedoe
+        list_color:
+          type: string
+          description: Hexadecimal representation of the list color
+          example: FF6600
+        last_change:
+          type: integer
+          description: Time of last change made in the database. used to determine
+            input validity, and which piece of data is newer.
+      description: A list of items that belongs to a user
+      example:
+        owner: janedoe
+        last_change: 0
+        name: Shopping List
+        list_color: FF6600
+        id: 123456
+    DetailedList:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int6
+          example: 123456
+        name:
+          type: string
+          description: The name of the list
+          example: Shopping List
+        owner:
+          type: string
+          description: the username of the list owner
+          example: janedoe
+        list_color:
+          type: string
+          description: Hexadecimal representation of the list color
+          example: FF6600
+        last_change:
+          type: integer
+          description: Time of last change made in the database. used to determine
+            input validity, and which piece of data is newer.
+        list_items:
+          type: object
+          description: List of items contianed in the list (Item object)
+      description: A detailed list of items that belongs to a user
+      example:
+        owner: janedoe
+        last_change: 0
+        name: Shopping List
+        list_color: FF6600
+        id: 123456
+        list_items: {}
+    Item:
+      description: A list Item, belongs to a list, has a quantity, and an item name
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: A message describing the Error.
+      description: |
+        An object representing an error response from the API.
+    inline_response_201:
+      type: object
+      properties:
+        id:
+          type: string
+          description: "Unique ID of the created User. \n"
+          example: janedoe
+      example:
+        id: janedoe
+    inline_response_200:
+      type: object
+      properties:
+        token:
+          type: string
+          description: |
+            A JWT authentication token.
+          example: aaaaaaaa.bbbbbbbb.cccccccc
+      example:
+        token: aaaaaaaa.bbbbbbbb.cccccccc
+    listidshare_permissions:
+      type: object
+      properties:
+        view:
+          type: boolean
+          example: true
+        add:
+          type: boolean
+          example: true
+        delete:
+          type: boolean
+          example: true
+    body:
+      type: object
+      properties:
+        user:
+          type: string
+          example: johndoe
+        permissions:
+          $ref: '#/components/schemas/listidshare_permissions'
+  securitySchemes:
+    application:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: http://example.com/oauth/token
+          scopes:
+            write: allows modifying resources
+            read: allows reading resources
