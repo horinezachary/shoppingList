@@ -20,5 +20,5 @@
    host: "sql_server",
    user: "user",
    password: "pass",
-   database: "recipes"
+   database: "database"
    ```
