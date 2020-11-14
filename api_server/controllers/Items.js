@@ -13,8 +13,8 @@ module.exports.addListItem = function addListItem (req, res, next, body, id) {
     });
 };
 
-module.exports.removeListItemById = function removeListItemById (req, res, next) {
-  Items.removeListItemById()
+module.exports.removeListItemById = function removeListItemById (req, res, next, id) {
+  Items.removeListItemById(id)
     .then(function (response) {
       utils.writeJson(res, response);
     })

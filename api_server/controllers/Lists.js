@@ -23,8 +23,8 @@ module.exports.getLists = function getLists (req, res, next) {
     });
 };
 
-module.exports.removeListById = function removeListById (req, res, next) {
-  Lists.removeListById()
+module.exports.removeListById = function removeListById (req, res, next, id) {
+  Lists.removeListById(id)
     .then(function (response) {
       utils.writeJson(res, response);
     })
@@ -53,8 +53,18 @@ module.exports.unShareListById = function unShareListById (req, res, next, id) {
     });
 };
 
-module.exports.updateListById = function updateListById (req, res, next, body) {
-  Lists.updateListById(body)
+module.exports.updateListById = function updateListById (req, res, next, body, id) {
+  Lists.updateListById(body, id)
+    .then(function (response) {
+      utils.writeJson(res, response);
+    })
+    .catch(function (response) {
+      utils.writeJson(res, response);
+    });
+};
+
+module.exports.updateUserShareById = function updateUserShareById (req, res, next, body, id) {
+  Lists.updateUserShareById(body, id)
     .then(function (response) {
       utils.writeJson(res, response);
     })

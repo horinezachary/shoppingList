@@ -96,6 +96,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
       x-swagger-router-controller: Users
+  /users/forgotpassword:
+    post:
+      tags:
+      - Users
+      summary: send a password reset request to the email given in the request body.
+      description: |
+        Returns nothing, but sets a key aside and sends an email to the specified address if an account exists.
+      operationId: sendForgotPassword
+      requestBody:
+        description: |
+          provide a list name and color, the owner id is pulled from url
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/List'
+        required: true
+      responses:
+        "200":
+          description: Success
+        "404":
+          description: Email not found (not used because it would give away information)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Users
   /users/{id}:
     get:
       tags:
@@ -136,11 +162,96 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
       x-swagger-router-controller: Users
+    delete:
+      tags:
+      - Users
+      summary: Remove a specific user from the database.
+      description: |
+        Completely removes the user and all their associated data from the database.
+      operationId: removeUserById
+      parameters:
+      - name: id
+        in: path
+        description: |
+          Unique username of a User.
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: janedoe
+      responses:
+        "204":
+          description: Success
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified List `id` not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Users
+    patch:
+      tags:
+      - Users
+      summary: Update data for the specified user.
+      description: |
+        Performs a partial update on the data for the user. Password can only be updated via the passwordUpdate POST request.
+      operationId: updateUserById
+      parameters:
+      - name: id
+        in: path
+        description: |
+          id of the requested user
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: integer
+        example: "123456"
+      requestBody:
+        description: |
+          Partial updates to be applied to the specified user.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+        required: true
+      responses:
+        "200":
+          description: Success
+        "400":
+          description: |
+            The request body was either not present or did not contain any fields related to User objects.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified List `id` not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Users
   /users/{id}/lists:
     get:
       tags:
       - Users
-      summary: Fetch all of a user's lists
+      summary: Fetch all of a user's lists (that you have access to)
       description: |
         Returns a JSON object with an array of lists (without list elements)
       operationId: getUserLists
@@ -218,6 +329,187 @@ paths:
                 $ref: '#/components/schemas/Error'
         "404":
           description: Specified User `id` not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Users
+  /users/{id}/passwordReset:
+    post:
+      tags:
+      - Users
+      summary: Reset a user's password, provided a valid auth token is given
+      description: |
+        Authenticate a specific User with their email address and password.
+      operationId: setUserPassword
+      parameters:
+      - name: id
+        in: path
+        description: |
+          Unique username of a User.
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: janedoe
+      requestBody:
+        description: |
+          Email address and new plain-text password for the User who's password is being updated.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+            example:
+              email: example@horine.dev
+              password: password
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/inline_response_200'
+        "400":
+          description: |
+            The request body was either not present or did not contain all of the required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "401":
+          description: |
+            The specified credentials were invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          description: |
+            An internal server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Users
+  /users/{id}/autofill:
+    get:
+      tags:
+      - Users
+      summary: Fetch all of a user's autofill items
+      description: |
+        Returns a JSON object with an array of autofill items
+      operationId: getUserAutofill
+      parameters:
+      - name: id
+        in: path
+        description: |
+          Unique username of a user
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: janedoe
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Autofill'
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified User `id` not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Users
+    post:
+      tags:
+      - Users
+      summary: Add a new list owned by the given user
+      description: |
+        Add an autofill item to a user (automatically done when an item is added to a list, but can be done manually)
+      operationId: addUserAutofill
+      parameters:
+      - name: id
+        in: path
+        description: |
+          Unique username of a user
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: janedoe
+      requestBody:
+        description: |
+          provide a name for the new autofill item, owner is pulled from url path
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Autofill'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Autofill'
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified User `id` not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Users
+    delete:
+      tags:
+      - Users
+      summary: Remove a specific autofill entry from the database.
+      description: |
+        Completely removes the autofill entry form the database. can only be done by the owner of the entry
+      operationId: removeAutofillById
+      parameters:
+      - name: id
+        in: path
+        description: |
+          Unique username of a user
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+        example: janedoe
+      responses:
+        "204":
+          description: Success
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified List `id` not found
           content:
             application/json:
               schema:
@@ -301,6 +593,17 @@ paths:
       description: |
         Completely removes the data for the specified list, including all list elements.  Only an authenticated whose ID matches the `owner` of the List with the given `listId` can delete a List.
       operationId: removeListById
+      parameters:
+      - name: id
+        in: path
+        description: |
+          id of the requested list
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: integer
+        example: "123456"
       responses:
         "204":
           description: Success
@@ -325,6 +628,17 @@ paths:
       description: |
         Performs a partial update on the data for the list.
       operationId: updateListById
+      parameters:
+      - name: id
+        in: path
+        description: |
+          id of the requested list
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: integer
+        example: "123456"
       requestBody:
         description: |
           Partial updates to be applied to the specified list.
@@ -369,7 +683,7 @@ paths:
       - name: id
         in: path
         description: |
-          id of the list to add the item to
+          id of the requested list
         required: true
         style: simple
         explode: false
@@ -412,6 +726,17 @@ paths:
       description: |
         Completely removes the data for the specified Item, and removes it's link to the list.  Only an authenticated User with edit access to the List with the given `listId`.
       operationId: removeListItemById
+      parameters:
+      - name: id
+        in: path
+        description: |
+          id of the requested list
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: integer
+        example: "123456"
       responses:
         "204":
           description: Success
@@ -423,7 +748,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         "404":
-          description: Specified Assignment `id` not found
+          description: Specified List `id` not found
           content:
             application/json:
               schema:
@@ -441,7 +766,7 @@ paths:
       - name: id
         in: path
         description: |
-          id of the list to share
+          id of the requested list
         required: true
         style: simple
         explode: false
@@ -471,7 +796,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         "404":
-          description: Specified User `id` not found.
+          description: Specified List `id` not found.
           content:
             application/json:
               schema:
@@ -488,13 +813,79 @@ paths:
       - name: id
         in: path
         description: |
-          id of the list to add the item to
+          id of the requested list
         required: true
         style: simple
         explode: false
         schema:
           type: integer
         example: "123456"
+      responses:
+        "204":
+          description: Success
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified List `id` not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-swagger-router-controller: Lists
+    patch:
+      tags:
+      - Lists
+      summary: Update sharing info for the specified list.
+      description: |
+        Performs a partial update on the sharing data for the list.
+      operationId: updateUserShareById
+      parameters:
+      - name: id
+        in: path
+        description: |
+          id of the requested list
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: integer
+        example: "123456"
+      requestBody:
+        description: |
+          Partial updates to be applied to the specified list.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareElement'
+        required: true
+      responses:
+        "200":
+          description: Success
+        "400":
+          description: |
+            The request body was either not present or did not contain any fields related to List objects.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "403":
+          description: |
+            The request was not made by an authenticated User satisfying the authorization criteria described above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: Specified List `id` not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       x-swagger-router-controller: Lists
 components:
   schemas:
@@ -606,8 +997,51 @@ components:
         list_color: FF6600
         id: 123456
         list_items: {}
+    ShareElement:
+      properties:
+        user:
+          type: string
+          example: johndoe
+        permissions:
+          $ref: '#/components/schemas/listidshare_permissions'
+      description: Format for returning a share object for a list
     Item:
+      properties:
+        id:
+          type: integer
+          example: 123456
+        list_id:
+          type: integer
+          example: 123456
+        name:
+          type: string
+          example: bananas
+        count:
+          type: integer
+          example: 5
       description: A list Item, belongs to a list, has a quantity, and an item name
+      example:
+        list_id: 123456
+        name: bananas
+        count: 5
+        id: 123456
+    Autofill:
+      properties:
+        id:
+          type: integer
+          example: 123456
+        name:
+          type: string
+          example: bananas
+        owner:
+          type: string
+          example: janedoe
+      description: A non-quantitied item that is not linked to a list used for autofill.
+        (specific to a user)
+      example:
+        owner: janedoe
+        name: bananas
+        id: 123456
     Error:
       type: object
       properties:

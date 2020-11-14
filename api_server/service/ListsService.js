@@ -57,9 +57,10 @@ exports.getLists = function() {
  * Remove a specific List from the database.
  * Completely removes the data for the specified list, including all list elements.  Only an authenticated whose ID matches the `owner` of the List with the given `listId` can delete a List. 
  *
+ * id Integer id of the requested list 
  * no response value expected for this operation
  **/
-exports.removeListById = function() {
+exports.removeListById = function(id) {
   return new Promise(function(resolve, reject) {
     resolve();
   });
@@ -72,7 +73,7 @@ exports.removeListById = function() {
  *
  * body Body provide a user and level to share
 
- * id Integer id of the list to share 
+ * id Integer id of the requested list 
  * returns List
  **/
 exports.shareListById = function(body,id) {
@@ -98,7 +99,7 @@ exports.shareListById = function(body,id) {
  * Remove the sharing permissions for a given user
  * Share the list with the given id with the user 
  *
- * id Integer id of the list to add the item to 
+ * id Integer id of the requested list 
  * no response value expected for this operation
  **/
 exports.unShareListById = function(id) {
@@ -114,9 +115,26 @@ exports.unShareListById = function(id) {
  *
  * body List Partial updates to be applied to the specified list.
 
+ * id Integer id of the requested list 
  * no response value expected for this operation
  **/
-exports.updateListById = function(body) {
+exports.updateListById = function(body,id) {
+  return new Promise(function(resolve, reject) {
+    resolve();
+  });
+}
+
+
+/**
+ * Update sharing info for the specified list.
+ * Performs a partial update on the sharing data for the list. 
+ *
+ * body ShareElement Partial updates to be applied to the specified list.
+
+ * id Integer id of the requested list 
+ * no response value expected for this operation
+ **/
+exports.updateUserShareById = function(body,id) {
   return new Promise(function(resolve, reject) {
     resolve();
   });
