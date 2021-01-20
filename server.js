@@ -78,7 +78,7 @@ app.get('/', function (req, res, next) {
 
 app.get('/home', async function (req, res, next) {
    if (!req.session.uname) {
-      res.redirect('/login');
+      res.redirect('/login?redirect=/home');
    } else {
       const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
       var user = req.session.uname;
@@ -238,6 +238,8 @@ app.post('/register', function(req, res) {
             if (req.query.redirect) {
               res.redirect(req.query.redirect);
             } else{
+              res.redirect('/');
+            }
          }
    });
    });
@@ -283,7 +285,7 @@ app.post('/passwordReset', function(req, res) {
                 name: uEmail[0].fname+' '+uEmail[0].lname,
                 email: uEmail[0].email,
                 uname: uEmail[0].uname,
-                link: 'https://lorislist.horine.dev/passwordReset/'+token,
+                link: 'https://'+config.url+'/passwordReset/'+token,
               }
             };
             transporter.sendMail(HelperOptions, (error,info) => {
@@ -325,7 +327,7 @@ app.post('/updatePassword/:token', function(req, res) {
 
 app.get('/l/:list', async function (req, res, next) {
    if (!req.session.uname) {
-      res.redirect('/login');
+      res.redirect('/login?redirect=/l/'+req.params.list);
    } else {
       const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
       var user = req.session.uname;
@@ -385,7 +387,7 @@ app.post('/l/showAlert/:list', function (req, res) {
 
    console.log("post");
    if (!req.session.uname) {
-      res.redirect('/login');
+      res.redirect('/login?redirect=/l/'+req.params.list);
    } else {
       var user = req.session.uname;
       var dontshow = req.body.dontshow;
@@ -401,7 +403,7 @@ app.post('/l/showAlert/:list', function (req, res) {
 
 app.post('/l/addItem/:list', function (req, res) {
    if (!req.session.uname) {
-      res.redirect('/login');
+      res.redirect('/login?redirect=/l/'+req.params.list);
    } else {
       var user = req.session.uname;
       var list = req.params.list;
@@ -419,7 +421,7 @@ app.post('/l/addItem/:list', function (req, res) {
 
 app.post('/l/delItem/:list', function (req, res) {
    if (!req.session.uname) {
-      res.redirect('/login');
+      res.redirect('/login?redirect=/l/'+req.params.list);
    } else {
       var list = req.params.list;
       var items = req.body.items;
@@ -433,7 +435,7 @@ app.post('/l/delItem/:list', function (req, res) {
 
 app.post('/l/crossItem/:list', function (req, res) {
    if (!req.session.uname) {
-      res.redirect('/login');
+      res.redirect('/login?redirect=/l/'+req.params.list);
    } else {
       var list = req.params.list;
       var items = req.body.items;
@@ -446,7 +448,7 @@ app.post('/l/crossItem/:list', function (req, res) {
 
 app.post('/l/delList/', function (req, res) {
    if (!req.session.uname) {
-      res.redirect('/login');
+      res.redirect('/login?redirect=/home');
    } else {
       var list = req.body.list;
       console.log(list);
@@ -457,7 +459,7 @@ app.post('/l/delList/', function (req, res) {
 
 app.post('/:other?/addList', function (req, res) {
    if (!req.session.uname) {
-      res.redirect('/login');
+      res.redirect('/login?redirect=/'+req.params.other);
    } else {
       var user = mysql.escape(req.session.uname);
       var list = mysql.escape(req.body.listName);
@@ -473,7 +475,7 @@ app.post('/:other?/addList', function (req, res) {
 
 app.post('/editInfo', async function (req, res) {
    if (!req.session.uname) {
-      res.redirect('/login');
+      res.redirect('/login?redirect=/myAccount');
    } else {
       const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
       var user = mysql.escape(req.session.uname);
@@ -535,7 +537,7 @@ app.post('/editInfo', async function (req, res) {
 
 app.post('/:editList/editList/:list', function (req, res) {
    if (!req.session.uname) {
-      res.redirect('/login');
+      res.redirect('/login?redirect=/home');
    } else {
       var user = mysql.escape(req.session.uname);
       var listid = mysql.escape(req.params.list);
@@ -549,7 +551,7 @@ app.post('/:editList/editList/:list', function (req, res) {
 
 app.get('/:other?/myAccount', async function (req, res, next) {
    if (!req.session.uname) {
-      res.redirect('/login');
+      res.redirect('/login?redirect=/myAccount');
    } else {
       const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
       var user = mysql.escape(req.session.uname);
