@@ -446,6 +446,56 @@ app.post('/l/crossItem/:list', function (req, res) {
    }
 });
 
+app.post('/l/:list/share/', async function (req, res) {
+   if (!req.session.uname) {
+      res.redirect('/login?redirect=/l/'+req.params.list);
+   } else {
+      var user = req.session.uname;
+      var list = req.params.list;
+      var email = req.body.email;
+      var perms = req.body.perms;
+      console.log(user+", "+list+", "+email+", "+perms);
+
+      //generate key
+      var share_key = crypto.randomBytes(16).toString('hex');
+      //add Keyed Share
+
+      con.query(`INSERT INTO Shared_list (share_key,list_id,owner,share_email,share_perms) VALUES('${share_key}','${list}','${user}','${email}','${perms}')
+                  ON DUPLICATE KEY UPDATE share_key='${share_key}', list_id='${list}', owner='${user}', share_email='${email}', share_perms='${perms}'`);
+      let share_user = await con.asyncQuery(`SELECT DISTINCT * FROM User WHERE email = '${email}'`);
+      share_user = share_user[0];
+      console.log(share_user);
+      //send email
+      ViewOption(transporter,nodemailerhbs);
+      let HelperOptions = {
+        from: '"Loris-List" <noreply@horine.dev>',
+        to: email,
+        subject: user + ' would like to share a list with you - Lori\'s List',
+        template: 'share',
+        context: {
+          uname: user,
+          share_user: share_user[0],
+          perms: perms,
+          list_name: list,
+          link: 'https://'+config.url+'/share/'+share_key,
+          register_link: 'https://'+config.url+'/register'
+        }
+      };
+      transporter.sendMail(HelperOptions, (error,info) => {
+        if(error) {
+          console.log(error);
+          res.json(error);
+        }
+        console.log("email is sent");
+        console.log(info);
+        res.json(info)
+      });
+      console.log("email sent to "+email);
+
+      res.redirect('/l/'+list);
+   }
+});
+
 app.post('/l/delList/', function (req, res) {
    if (!req.session.uname) {
       res.redirect('/login?redirect=/home');
