@@ -5,6 +5,12 @@ var con = require('./sqlConfig');
 
 con.start(config.database);
 
+const USER = 1;
+const LIST = 2;
+const OWNER = "OWNER";
+const SHARE_EDIT = "EDIT";
+const SHARE_VIEW = "VIEW";
+
 var path = require('path');
 const url = require('url');
 const querystring = require('querystring');
@@ -61,6 +67,25 @@ let ViewOption = (transport, hbs) => {
       viewPath: 'views/email',
       extName: '.handlebars'
     }));
+}
+
+async function authorize(session, authLevel, page) {
+  if (!session.uname) {
+    res.redirect('/login?redirect=/'+page);
+    return false;
+  } else if (authLevel == LIST){
+    let list_id = page.substr(page.indexOf('/',page.indexOf('/')+1)+1,page.indexOf(page.indexOf('/',page.indexOf('/')+1)+1));
+    console.log(list);
+    let [list] = await con.asyncQuery(`SELECT 1 FROM ShoppingList WHERE list_id = '${list_id}';`);
+    if (list[0].owner == session.uname) {
+      return OWNER;
+    } else {
+      let [shares] = await con.asyncQuery(`SELECT 1 FROM Shared_list WHERE list_id = '${list_id}' & share_user = '${session.uname}' & accepted = '1';`);
+      if (shares[0]) {
+        return shares[0].share_perms;
+      }
+    }
+  }
 }
 
 app.get('/', function (req, res, next) {
