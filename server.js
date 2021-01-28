@@ -409,12 +409,12 @@ app.get('/l/:list', async function (req, res, next) {
    }
 });
 
-app.post('/l/showAlert', function (req, res) {
 
    console.log("post");
    if (!req.session.uname) {
       res.redirect('/login?redirect=/l/'+req.params.list);
    } else {
+app.post('/l/:list/showAlert', function (req, res) {
       var user = req.session.uname;
       var dontshow = req.body.dontshow;
       var list = req.params.list;
