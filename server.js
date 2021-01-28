@@ -75,12 +75,13 @@ async function authorize(session, authLevel, page) {
     return false;
   } else if (authLevel == LIST){
     let list_id = page.substr(page.indexOf('/',page.indexOf('/')+1)+1,page.indexOf(page.indexOf('/',page.indexOf('/')+1)+1));
+    console.log(list_id);
+    let [list] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE list_id = '${list_id}';`);
     console.log(list);
-    let [list] = await con.asyncQuery(`SELECT 1 FROM ShoppingList WHERE list_id = '${list_id}';`);
     if (list[0].owner == session.uname) {
       return OWNER;
     } else {
-      let [shares] = await con.asyncQuery(`SELECT 1 FROM Shared_list WHERE list_id = '${list_id}' & share_user = '${session.uname}' & accepted = '1';`);
+      let [shares] = await con.asyncQuery(`SELECT * FROM Shared_list WHERE list_id = '${list_id}' & share_user = '${session.uname}' & accepted = '1';`);
       if (shares[0]) {
         return shares[0].share_perms;
       }
