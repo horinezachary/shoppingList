@@ -4,7 +4,7 @@ function setChecked(list, listId, id) {
    if (document.getElementById(id).classList.contains('checked')) {
       checked = 1;
    }
-   fetch('/l/crossItem/'+list, {
+   fetch('/l/'+list+'/crossItem/', {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json'
@@ -78,7 +78,7 @@ $('#editModal').on('show.bs.modal', function (event) {
    }
    modal.find('#modalTitle').text("Edit List: "+name);
    document.getElementById('nameInput').setAttribute( "value", name);
-   document.getElementById('editForm').setAttribute( "action",'editList/'+id);
+   document.getElementById('editForm').setAttribute( "action",'/l/'+id+'/editList/');
 })
 
 
@@ -93,7 +93,7 @@ $('#deleteModal').on('show.bs.modal', function (event) {
 })
 
 function deleteList(listId) {
-   fetch('/l/delList/', {
+   fetch('/l/'+listId+'/delList/', {
       method: 'POST',
       headers: {
          'Content-Type': 'application/json'

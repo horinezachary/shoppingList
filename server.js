@@ -383,7 +383,7 @@ app.get('/l/:list', async function (req, res, next) {
    }
 });
 
-app.post('/l/showAlert/:list', function (req, res) {
+app.post('/l/showAlert', function (req, res) {
 
    console.log("post");
    if (!req.session.uname) {
@@ -401,7 +401,7 @@ app.post('/l/showAlert/:list', function (req, res) {
    }
 });
 
-app.post('/l/addItem/:list', function (req, res) {
+app.post('/l/:list/addItem', function (req, res) {
    if (!req.session.uname) {
       res.redirect('/login?redirect=/l/'+req.params.list);
    } else {
@@ -419,7 +419,7 @@ app.post('/l/addItem/:list', function (req, res) {
    }
 });
 
-app.post('/l/delItem/:list', function (req, res) {
+app.post('/l/:list/delItem', function (req, res) {
    if (!req.session.uname) {
       res.redirect('/login?redirect=/l/'+req.params.list);
    } else {
@@ -433,7 +433,7 @@ app.post('/l/delItem/:list', function (req, res) {
 });
 
 
-app.post('/l/crossItem/:list', function (req, res) {
+app.post('/l/:list/crossItem', function (req, res) {
    if (!req.session.uname) {
       res.redirect('/login?redirect=/l/'+req.params.list);
    } else {
@@ -496,7 +496,7 @@ app.post('/l/:list/share/', async function (req, res) {
    }
 });
 
-app.post('/l/delList/', function (req, res) {
+app.post('/l/:list/delList/', function (req, res) {
    if (!req.session.uname) {
       res.redirect('/login?redirect=/home');
    } else {
@@ -585,7 +585,7 @@ app.post('/editInfo', async function (req, res) {
    }
 });
 
-app.post('/:editList/editList/:list', function (req, res) {
+app.post('/l/:list/editList', function (req, res) {
    if (!req.session.uname) {
       res.redirect('/login?redirect=/home');
    } else {
