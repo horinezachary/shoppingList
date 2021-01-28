@@ -326,60 +326,60 @@ app.post('/updatePassword/:token', function(req, res) {
 });
 
 app.get('/l/:list', async function (req, res, next) {
-   if (!req.session.uname) {
-      res.redirect('/login?redirect=/l/'+req.params.list);
-   } else {
-      const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
-      var user = req.session.uname;
-      var list = req.params.list;
-      var showAlert = req.session.showAlert;
-      var fname = req.session.fname;
-      var lname = req.session.lname;
-      console.log(showAlert);
-      if (showAlert == 0) {
-         showAlert = false;
-      }
-      list = mysql.escape(list);
-      con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList.list_id = ${list}`,
-         function (err, singleListData) {
-            if (singleListData.length == 0){
-               res.status(404).render('404.handlebars', {
-                  title: '404',
-                  layout: 'bare'
-               });
-            } else {
-               con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
-                  function (err, listItemData) {
-                     var buttonDisabled = true;
-                     for (i = 0; i < listItemData.length; i++) {
-                        if (listItemData[i].checked == 1) {
-                           buttonDisabled = false;
-                           break;
-                        }
-                     }
-               con.query(`SELECT * FROM Item WHERE Item.owner = '${user.toString()}';`,
-                  function (err, autofillData) {
-
-               con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}';`,
-                  function (err, listData) {
-               console.log("Header Lists: " + listData);
-                  res.status(200).render('shoppingList', {
-                     title: singleListData[0].list_name,
-                     fname: fname,
-                     lname: lname,
-                     list: singleListData,
-                     autofillItem: autofillData,
-                     listItem: listItemData,
-                     headerlists: listData,
-                     colors: colors,
-                     buttonDisabled: buttonDisabled,
-                     showAlert: showAlert
-               });
-               });
-               });
-               });
+  
+  if (!req.session.uname) {
+    res.redirect('/login?redirect=/l/'+req.params.list);
+  } else {
+    const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
+    var user = req.session.uname;
+    var list = req.params.list;
+    var showAlert = req.session.showAlert;
+    var fname = req.session.fname;
+    var lname = req.session.lname;
+    console.log(showAlert);
+    if (showAlert == 0) {
+      showAlert = false;
+    }
+    list = mysql.escape(list);
+    con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList.list_id = ${list}`,
+    function (err, singleListData) {
+      if (singleListData.length == 0){
+        res.status(404).render('404.handlebars', {
+          title: '404',
+          layout: 'bare'
+        });
+      } else {
+        con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
+        function (err, listItemData) {
+          var buttonDisabled = true;
+          for (i = 0; i < listItemData.length; i++) {
+            if (listItemData[i].checked == 1) {
+              buttonDisabled = false;
+              break;
             }
-      });
+          }
+          con.query(`SELECT * FROM Item WHERE Item.owner = '${user.toString()}';`,
+          function (err, autofillData) {
+            con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}';`,
+            function (err, listData) {
+              console.log("Header Lists: " + listData);
+              res.status(200).render('shoppingList', {
+                title: singleListData[0].list_name,
+                fname: fname,
+                lname: lname,
+                list: singleListData,
+                autofillItem: autofillData,
+                listItem: listItemData,
+                headerlists: listData,
+                colors: colors,
+                buttonDisabled: buttonDisabled,
+                showAlert: showAlert
+              });
+            });
+          });
+        });
+      }
+    });
    }
 });
 
