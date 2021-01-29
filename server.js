@@ -433,7 +433,7 @@ app.post('/l/:list/share/', async function (req, res) {
 
     con.asyncQuery(`INSERT INTO share_pending (share_key,list_id,list_owner,share_email,share_perms) VALUES('${share_key}','${list}','${user}','${email}','${perms}')
                 ON DUPLICATE KEY UPDATE share_key='${share_key}', list_id='${list}', list_owner='${user}', share_email='${email}', share_perms='${perms}'`);
-    let share_user = await con.asyncQuery(`SELECT DISTINCT * FROM User WHERE email = '${email}'`);
+    let [share_user] = await con.asyncQuery(`SELECT DISTINCT * FROM User WHERE email = '${email}'`);
     share_user = share_user[0];
     console.log(share_user);
     //send email
