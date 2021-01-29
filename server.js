@@ -163,65 +163,34 @@ function updatePassword(uname,passIn) {
 
 app.post('/login', function(req, res) {
   var uname = mysql.escape(req.body.username);
-  con.query(`SELECT * FROM User WHERE uname = ${uname.toString()};`,
-    function(err, user) {
-      if (!user || user.length == 0) {
-        res.redirect("/login/?error="+'Invalid username or password.'+"&redirect="+req.query.redirect);
-      } else {
-        var passIn = mysql.escape(req.body.password);
-        var salt = user[0].salt;
-        var passwordHash;
-        if (user[0].hash == "MD5") {
-          var passwordHash = md5(passIn+salt);
-          if (passwordHash === user[0].password) {
-            //convert to BCR
-            updatePassword("\'"+user[0].uname+"\'",passIn);
-            //set values
-            req.session.uname = user[0].uname;
-            req.session.fname = user[0].fname;
-            req.session.lname = user[0].lname;
-            req.session.email = user[0].email;
-            req.session.showAlert = user[0].showAlert;
-            //go home
-            console.log(req.query);
-            if (req.query.redirect) {
-              res.redirect(req.query.redirect);
-            } else{
-              res.redirect('/');
-            }
-          } else {
-            res.redirect("/login/?error="+'Invalid username or password.'+"&redirect="+req.query.redirect);
-          }
-        } else if (user[0].hash == "BCR") {
-          bcrypt.compare(passIn, user[0].password, function(err, result) {
-            if (result == true) {
-              //set values
-              req.session.uname = user[0].uname;
-              req.session.fname = user[0].fname;
-              req.session.lname = user[0].lname;
-              req.session.email = user[0].email;
-              req.session.showAlert = user[0].showAlert;
-              //go home
-              console.log(req.query);
-              if (req.query.redirect) {
-                res.redirect(req.query.redirect);
-              } else{
-                res.redirect('/');
-              }
-            }
-            if (result == false) {
-              res.redirect("/login/?error="+'Invalid username or password.'+"&redirect="+req.query.redirect);
-            }
-          });
-        } else {
-          res.render('login.handlebars', {
-            title: 'Login',
-            layout: 'bare',
-            error: 'Invalid username or password.'
-          });
+  let user = await con.asyncQuery(`SELECT * FROM User WHERE uname = ${uname.toString()};`);
+  if (!user || user.length == 0) {
+    res.redirect("/login/?error="+'Invalid username or password.'+"&redirect="+req.query.redirect);
+  } else {
+    var passIn = mysql.escape(req.body.password);
+    var salt = user[0].salt;
+    var passwordHash;
+    bcrypt.compare(passIn, user[0].password, function(err, result) {
+      if (result == true) {
+        //set values
+        req.session.uname = user[0].uname;
+        req.session.fname = user[0].fname;
+        req.session.lname = user[0].lname;
+        req.session.email = user[0].email;
+        req.session.showAlert = user[0].showAlert;
+        //go home
+        console.log(req.query);
+        if (req.query.redirect) {
+          res.redirect(req.query.redirect);
+        } else{
+          res.redirect('/');
         }
       }
-   });
+      if (result == false) {
+        res.redirect("/login/?error="+'Invalid username or password.'+"&redirect="+req.query.redirect);
+      }
+    });
+  }
 });
 
 app.get('/logout', function (req, res, next) {
