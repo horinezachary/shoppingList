@@ -324,7 +324,7 @@ app.post('/passwordReset', function(req, res) {
           name: uEmail[0].fname+' '+uEmail[0].lname,
           email: uEmail[0].email,
           uname: uEmail[0].uname,
-          link: 'https://'+config.url+'/passwordReset/'+token,
+          link: config.url+'/passwordReset/'+token,
         }
       };
       transporter.sendMail(HelperOptions, (error,info) => {
@@ -505,8 +505,8 @@ app.post('/l/:list/share/', async function (req, res) {
         share_user: share_user[0],
         perms: perms,
         list_name: list,
-        link: 'https://'+config.url+'/share/'+share_key,
-        register_link: 'https://'+config.url+'/register'
+        link: config.url+'/share/'+share_key,
+        register_link: config.url+'/register'
       }
     };
     transporter.sendMail(HelperOptions, (error,info) => {
@@ -571,7 +571,7 @@ app.post('/shareConfirmation/:share_key', async function (req, res, next) {
 
 app.post('/l/:list/unsub/', async function (req,res) {
   if (await authorize(req.session,res,LIST_EDIT,{redirect:'/home',list:req.params.list},EXECUTE)){ //has edit
-    await con.asyncQuery(`DELETE FROM Shared_list WHERE list_id = '${req.params.list}' & share_user = '${req.params.uname}'};`);
+    await con.asyncQuery(`DELETE FROM Shared_list WHERE list_id = '${req.params.list}' & share_user = '${req.params.uname}';`);
   }
 });
 
