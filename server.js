@@ -89,7 +89,7 @@ async function authorize(session, res, authLevel, page, execute) {
     if (list[0].owner == session.uname) {
       owner = true;
     } else {
-      let [shares] = await con.asyncQuery(`SELECT * FROM Shared_list WHERE list_id = '${list_id}' & share_user = '${session.uname}' & accepted = '1';`);
+      let [shares] = await con.asyncQuery(`SELECT * FROM Shared_list WHERE list_id = '${list_id}' AND share_user = '${session.uname}';`);
       if (shares[0]) {
         auth = shares[0].share_perms;
       }
@@ -488,8 +488,8 @@ app.post('/l/:list/share/', async function (req, res) {
     var share_key = crypto.randomBytes(16).toString('hex');
     //add Keyed Share
 
-    con.query(`INSERT INTO Shared_list (share_key,list_id,owner,share_email,share_perms) VALUES('${share_key}','${list}','${user}','${email}','${perms}')
-                ON DUPLICATE KEY UPDATE share_key='${share_key}', list_id='${list}', owner='${user}', share_email='${email}', share_perms='${perms}'`);
+    con.query(`INSERT INTO share_pending (share_key,list_id,list_owner,share_email,share_perms) VALUES('${share_key}','${list}','${user}','${email}','${perms}')
+                ON DUPLICATE KEY UPDATE share_key='${share_key}', list_id='${list}', list_owner='${user}', share_email='${email}', share_perms='${perms}'`);
     let share_user = await con.asyncQuery(`SELECT DISTINCT * FROM User WHERE email = '${email}'`);
     share_user = share_user[0];
     console.log(share_user);
@@ -525,7 +525,7 @@ app.post('/l/:list/share/', async function (req, res) {
 
 app.get('/share/:share_key', async function (req, res, next) {
   if (await authorize(req.session,res,USER,{redirect:'/share/'+req.params.share_key},EXECUTE)){ //is logged in
-    let [share_line] = await con.asyncQuery(`SELECT DISTINCT * FROM Shared_list WHERE share_key = ${mysql.escape(req.params.share_key)};`);
+    let [share_line] = await con.asyncQuery(`SELECT DISTINCT * FROM share_pending WHERE share_key = ${mysql.escape(req.params.share_key)};`);
     let [share_list] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE list_id = '${share_line[0].list_id}';`);
     let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${mysql.escape(req.session.uname)}`);
     console.log(share_line);
@@ -542,18 +542,19 @@ app.get('/share/:share_key', async function (req, res, next) {
 
 app.post('/shareConfirmation/:share_key', async function (req, res, next) {
   if (await authorize(req.session,res,USER,{redirect:'/login?redirect=/shareConfirmation/'+req.params.share_key},EXECUTE)){ //is logged in
-    let [share_line] = await con.asyncQuery(`SELECT DISTINCT * FROM Shared_list WHERE share_key = ${mysql.escape(req.params.share_key)};`);
+    let [share_line] = await con.asyncQuery(`SELECT DISTINCT * FROM share_pending WHERE share_key = ${mysql.escape(req.params.share_key)};`);
     let [share_list] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE list_id = '${share_line[0].list_id}';`);
     let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${mysql.escape(req.session.uname)}`);
     if (req.body.confirm == 'ACCEPT') {
-      await con.asyncQuery(`UPDATE Shared_list SET accepted = true, share_user = '${req.session.uname}', share_email = '${req.session.email}' WHERE share_key = ${mysql.escape(req.params.share_key)};`);
+      await con.asyncQuery(`INSERT INTO Shared_list (list_id,share_user,share_perms) VALUES ('${share_line[0].list_id}','${req.session.uname}','${share_line[0].share_perms}');`);
+      await con.asyncQuery(`DELETE FROM share_pending WHERE share_key = ${mysql.escape(req.params.share_key)};`);
       res.status(200).render('shareAccept', {
         share_list: share_list[0],
         share_perms: share_line[0].share_perms,
         headerlists: listData
       });
     } else if (req.body.confirm == 'DENY'){
-      await con.asyncQuery(`DELETE FROM Shared_list WHERE share_key = ${mysql.escape(req.params.share_key)};`);
+      await con.asyncQuery(`DELETE FROM share_pending WHERE share_key = ${mysql.escape(req.params.share_key)};`);
       res.status(200).render('shareDeny', {
         share_list: share_list[0],
         share_perms: share_line[0].share_perms,
@@ -566,8 +567,8 @@ app.post('/shareConfirmation/:share_key', async function (req, res, next) {
 });
 
 app.post('/l/:list/unsub/', async function (req,res) {
-  if (await authorize(req.session,res,LIST_EDIT,{redirect:'/home',list:req.params.list},EXECUTE)){ //has edit
-    await con.asyncQuery(`DELETE FROM Shared_list WHERE list_id = '${req.params.list}' & share_user = '${req.params.uname}';`);
+  if (await authorize(req.session,res,LIST_VIEW,{redirect:'/home',list:req.params.list},EXECUTE)){ //has view
+    await con.asyncQuery(`DELETE FROM Shared_list WHERE list_id = '${req.params.list}' AND share_user = '${req.session.uname}';`);
   }
 });
 
