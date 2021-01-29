@@ -480,7 +480,7 @@ app.post('/l/:list/share/', async function (req, res) {
   if (await authorize(req.session,res,LIST_OWNER,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has owner
     var user = req.session.uname;
     var list = req.params.list;
-    var email = req.body.email;
+    var email = req.body.email.toLowerCase();
     var perms = req.body.perms;
     console.log(user+", "+list+", "+email+", "+perms);
 
@@ -531,16 +531,12 @@ app.get('/share/:share_key', async function (req, res, next) {
     console.log(share_line);
     console.log(share_list);
     console.log(req.session);
-    if (share_line[0].share_email == req.session.email) {
-      res.status(200).render('shareConfirmation', {
-        share_key: req.params.share_key,
-        share_list: share_list[0],
-        share_perms: share_line[0].share_perms,
-        headerlists: listData
-      });
-    } else { //send 404
-      next();
-    }
+    res.status(200).render('shareConfirmation', {
+      share_key: req.params.share_key,
+      share_list: share_list[0],
+      share_perms: share_line[0].share_perms,
+      headerlists: listData
+    });
   }
 });
 
