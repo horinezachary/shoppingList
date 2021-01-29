@@ -130,40 +130,36 @@ app.get('/', function (req, res, next) {
 
 
 app.get('/home', async function (req, res, next) {
-  if (!req.session.uname) {
-    res.redirect('/login?redirect=/home');
-  } else {
+  if (await authorize(req.session,res,USER,{redirect:'/home',list:req.params.list},EXECUTE)){ //has view
     const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
     var user = req.session.uname;
     console.log(user);
-    let [sharedlists] = await con.asyncQuery(`SELECT * FROM Shared_list NATURAL JOIN ShoppingList WHERE share_user = '${user.toString()}';`)
+    let [sharedlists] = await con.asyncQuery(`SELECT * FROM Shared_list NATURAL JOIN ShoppingList WHERE share_user = '${user.toString()}';`);
     console.log(sharedlists);
-    let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}'`,
-    function (err, listData) {
-      res.status(200).render('home', {
-        title: 'Home',
-        uname: req.session.uname,
-        fname: req.session.fname,
-        lname: req.session.lname,
-        headerlists: listData,
-        sharedlists: sharedlists,
-        colors: colors
-      });
+    let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}';`);
+    res.status(200).render('home', {
+      title: 'Home',
+      uname: req.session.uname,
+      fname: req.session.fname,
+      lname: req.session.lname,
+      headerlists: listData,
+      sharedlists: sharedlists,
+      colors: colors
     });
   }
 });
 
 function updatePassword(uname,passIn) {
-  bcrypt.hash(passIn, saltRounds, function(err, hash) {
+  bcrypt.hash(passIn, saltRounds, async function(err, hash) {
     //store hash
-    con.query(`UPDATE User SET password = '${hash}', salt='', hash='BCR' WHERE uname = ${uname.toString()};`);
+    con.asyncQuery(`UPDATE User SET password = '${hash}', salt='', hash='BCR' WHERE uname = ${uname.toString()};`);
     console.log(hash);
   });
 }
 
-app.post('/login', function(req, res) {
+app.post('/login', async function(req, res) {
   var uname = mysql.escape(req.body.username);
-  let user = await con.asyncQuery(`SELECT * FROM User WHERE uname = ${uname.toString()};`);
+  let [user] = await con.asyncQuery(`SELECT * FROM User WHERE uname = ${uname.toString()};`);
   if (!user || user.length == 0) {
     res.redirect("/login/?error="+'Invalid username or password.'+"&redirect="+req.query.redirect);
   } else {
@@ -183,7 +179,7 @@ app.post('/login', function(req, res) {
         if (req.query.redirect) {
           res.redirect(req.query.redirect);
         } else{
-          res.redirect('/');
+          res.redirect('/home');
         }
       }
       if (result == false) {
@@ -198,138 +194,124 @@ app.get('/logout', function (req, res, next) {
   res.redirect('/');
 });
 
-app.post('/register', function(req, res) {
+app.post('/register', async function(req, res) {
   var fname = mysql.escape(req.body.fname);
   var lname = mysql.escape(req.body.lname);
   var uname = mysql.escape(req.body.username);
   var email = mysql.escape(req.body.email);
   var pass1 = mysql.escape(req.body.password);
   var pass2 = mysql.escape(req.body.password2);
-  var emailExists = con.query(`SELECT uname FROM User WHERE email = ${email.toString()};`,
-  function(err, emailIn) {
-    var userExists = con.query(`SELECT uname FROM User WHERE uname = ${uname.toString()};`,
-    function(err, users) {
-      if (emailIn.length > 0) {
-        res.render('register.handlebars', {
-          title: 'Register',
-          layout: 'bare',
-          error: 'Email is already in use!'
-        });
-        return true;
-      }
-      else if (users.length > 0) {
-        res.render('register.handlebars', {
-          title: 'Register',
-          layout: 'bare',
-          error: 'Username is already in use!'
-        });
-        return true;
-      }
-      else if (pass1 != pass2) {
-        res.render('register.handlebars', {
-          title: 'Register',
-          layout: 'bare',
-          error: 'Passwords must match.'
-        });
-      } else {
-        bcrypt.hash(pass1, saltRounds, function(err, hash) {
-          con.query(`INSERT INTO User (uname,fname,lname,email,password,hash)
-                    VALUES (${uname.toString()},${fname.toString()},${lname.toString()},${email.toString()},'${hash.toString()}','BCR');`,
-          function (err, userData) {
-            console.log(err);
-          });
-        });
-        req.session.uname = req.body.username;
-        req.session.fname = req.body.fname;
-        req.session.lname = req.body.lname;
-        req.session.email = req.body.email;
-        if (req.query.redirect) {
-          res.redirect(req.query.redirect);
-        } else{
-          res.redirect('/');
-        }
-      }
+  let [emailIn] = await con.asyncQuery(`SELECT uname FROM User WHERE email = ${email.toString()};`);
+  let [users] = await con.asyncQuery(`SELECT uname FROM User WHERE uname = ${uname.toString()};`);
+  if (emailIn.length > 0) {
+    res.render('register.handlebars', {
+      title: 'Register',
+      layout: 'bare',
+      error: 'Email is already in use!'
     });
-  });
+    return true;
+  }
+  else if (users.length > 0) {
+    res.render('register.handlebars', {
+      title: 'Register',
+      layout: 'bare',
+      error: 'Username is already in use!'
+    });
+    return true;
+  }
+  else if (pass1 != pass2) {
+    res.render('register.handlebars', {
+      title: 'Register',
+      layout: 'bare',
+      error: 'Passwords must match.'
+    });
+  } else {
+    bcrypt.hash(pass1, saltRounds, async function(err, hash) {
+      await con.asyncQuery(`INSERT INTO User (uname,fname,lname,email,password)
+            VALUES (${uname.toString()},${fname.toString()},${lname.toString()},${email.toString()},'${hash.toString()}');`);
+    });
+    req.session.uname = req.body.username;
+    req.session.fname = req.body.fname;
+    req.session.lname = req.body.lname;
+    req.session.email = req.body.email;
+    if (req.query.redirect) {
+      res.redirect(req.query.redirect);
+    } else{
+      res.redirect('/');
+    }
+  }
 });
 
-app.get('/passwordReset/:token', function(req, res, next) {
+app.get('/passwordReset/:token', async function(req, res, next) {
   var token = mysql.escape(req.params.token);
   console.log(req.params.token);
-  con.query(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`,
-  function (err, tokens) {
-    if (tokens.length > 0) {
-      console.log(tokens.length);
-      res.render('passwordReset.handlebars',{
-        title: 'Password Reset',
-        layout: 'bare',
-        token: req.params.token
-      });
-    } else {
-      res.status(404).render('404.handlebars');
-    }
-  });
+  let [tokens] = await con.asyncQuery(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`);
+  if (tokens.length > 0) {
+    console.log(tokens.length);
+    res.render('passwordReset.handlebars',{
+      title: 'Password Reset',
+      layout: 'bare',
+      token: req.params.token
+    });
+  } else {
+    res.status(404).render('404.handlebars');
+  }
 });
 
-app.post('/passwordReset', function(req, res) {
+app.post('/passwordReset', async function(req, res) {
   var email = mysql.escape(req.body.email);
-  con.query(`SELECT * FROM User WHERE email = ${email}`,
-  function (err, uEmail) {
-    if (uEmail.length > 0) {
-      console.log(uEmail[0].uname);
-      //generate token
-      var token = crypto.randomBytes(16).toString('hex');
-      console.log(token);
-      con.query(`DELETE FROM PasswordResetToken WHERE uname = '${uEmail[0].uname.toString()}';`);
-      con.query(`INSERT INTO PasswordResetToken (uname,token) VALUES ('${uEmail[0].uname.toString()}', ${mysql.escape(token.toString())});`);
-      //send email
-      ViewOption(transporter,nodemailerhbs);
-      let HelperOptions = {
-        from: '"Loris-List" <noreply@horine.dev>',
-        to: uEmail[0].email,
-        subject: 'Password Reset - Lori\'s List',
-        template: 'reset',
-        context: {
-          name: uEmail[0].fname+' '+uEmail[0].lname,
-          email: uEmail[0].email,
-          uname: uEmail[0].uname,
-          link: config.url+'/passwordReset/'+token,
-        }
-      };
-      transporter.sendMail(HelperOptions, (error,info) => {
-        if(error) {
-          console.log(error);
-          res.json(error);
-        }
-        console.log("email is send");
-        console.log(info);
-        res.json(info)
-      });
-      console.log("email sent to"+email);
-    } else {console.log("no match!");}
-    res.redirect('/login');
-  });
+  let [uEmail] = await con.asyncQuery(`SELECT * FROM User WHERE email = ${email}`);
+  if (uEmail.length > 0) {
+    console.log(uEmail[0].uname);
+    //generate token
+    var token = crypto.randomBytes(16).toString('hex');
+    console.log(token);
+    con.asyncQuery(`DELETE FROM PasswordResetToken WHERE uname = '${uEmail[0].uname.toString()}';`);
+    con.asyncQuery(`INSERT INTO PasswordResetToken (uname,token) VALUES ('${uEmail[0].uname.toString()}', ${mysql.escape(token.toString())});`);
+    //send email
+    ViewOption(transporter,nodemailerhbs);
+    let HelperOptions = {
+      from: '"Loris-List" <noreply@horine.dev>',
+      to: uEmail[0].email,
+      subject: 'Password Reset - Lori\'s List',
+      template: 'reset',
+      context: {
+        name: uEmail[0].fname+' '+uEmail[0].lname,
+        email: uEmail[0].email,
+        uname: uEmail[0].uname,
+        link: config.url+'/passwordReset/'+token,
+      }
+    };
+    transporter.sendMail(HelperOptions, (error,info) => {
+      if(error) {
+        console.log(error);
+        res.json(error);
+      }
+      console.log("email is send");
+      console.log(info);
+      res.json(info)
+    });
+    console.log("email sent to"+email);
+  } else {console.log("no match!");}
+  res.redirect('/login');
 });
 
-app.post('/updatePassword/:token', function(req, res) {
+app.post('/updatePassword/:token', async function(req, res) {
   var token = mysql.escape(req.params.token);
   var password = mysql.escape(req.body.password);
   var password2 = mysql.escape(req.body.password2);
   if (password != password2) {
     res.redirect('/passwordReset/'+token);
   } else {
-    con.query(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`,
-    function (err, reset) {
-      console.log(reset.length);
-      updatePassword(reset[0].uname,password)
-      con.query(`DELETE FROM PasswordResetToken WHERE uname = '${reset[0].uname.toString()}';`);
-
-      req.session.uname = req.body.username;
-      req.session.fname = req.body.fname;
-      req.session.lname = req.body.lname;
-      req.session.email = req.body.email;
-      res.redirect('/');
-    });
+    let [reset] = await con.asyncQuery(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`);
+    console.log(reset.length);
+    updatePassword(reset[0].uname,password)
+    con.asyncQuery(`DELETE FROM PasswordResetToken WHERE uname = '${reset[0].uname.toString()}';`);
+    req.session.uname = req.body.username;
+    req.session.fname = req.body.fname;
+    req.session.lname = req.body.lname;
+    req.session.email = req.body.email;
+    res.redirect('/');
   }
 });
 
@@ -347,48 +329,40 @@ app.get('/l/:list', async function (req, res, next) {
       showAlert = false;
     }
     list = mysql.escape(list);
-    con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.list_id = ${list}`,
-    function (err, singleListData) {
-      if (singleListData.length == 0){
-        next(); //render 404
-      } else {
-        let owner = false;
-        if (singleListData[0].owner == user) {
-          owner = true;
-        }
-        con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
-        function (err, listItemData) {
-          var buttonDisabled = true;
-          for (i = 0; i < listItemData.length; i++) {
-            if (listItemData[i].checked == 1) {
-              buttonDisabled = false;
-              break;
-            }
-          }
-          con.query(`SELECT * FROM Item WHERE Item.owner = '${user.toString()}';`,
-          function (err, autofillData) {
-            con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}';`,
-            function (err, listData) {
-              console.log("Header Lists: " + listData);
-              res.status(200).render('shoppingList', {
-                title: singleListData[0].list_name,
-                fname: fname,
-                lname: lname,
-                list: singleListData,
-                autofillItem: autofillData,
-                listItem: listItemData,
-                headerlists: listData,
-                colors: colors,
-                buttonDisabled: buttonDisabled,
-                showAlert: showAlert,
-                edit: edit,
-                owner: owner
-              });
-            });
-          });
-        });
+    let [singleListData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.list_id = ${list}`);
+    if (singleListData.length == 0){
+      next(); //render 404
+    } else {
+      let owner = false;
+      if (singleListData[0].owner == user) {
+        owner = true;
       }
-    });
+      let [listItemData] = await con.asyncQuery(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`);
+      var buttonDisabled = true;
+      for (i = 0; i < listItemData.length; i++) {
+        if (listItemData[i].checked == 1) {
+          buttonDisabled = false;
+          break;
+        }
+      }
+      let [autofillData] = await con.asyncQuery(`SELECT * FROM Item WHERE Item.owner = '${user.toString()}';`);
+      let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}';`);
+      console.log("Header Lists: " + listData);
+      res.status(200).render('shoppingList', {
+        title: singleListData[0].list_name,
+        fname: fname,
+        lname: lname,
+        list: singleListData,
+        autofillItem: autofillData,
+        listItem: listItemData,
+        headerlists: listData,
+        colors: colors,
+        buttonDisabled: buttonDisabled,
+        showAlert: showAlert,
+        edit: edit,
+        owner: owner
+      });
+    }
   }
 });
 
@@ -400,7 +374,7 @@ app.post('/l/:list/showAlert', async function (req, res) {
     console.log(dontshow);
     if (dontshow == 'Show') {
       req.session.showAlert = 0;
-      con.query(`UPDATE User SET showAlert = FALSE WHERE uname = '${user.toString()}';`);
+      con.asyncQuery(`UPDATE User SET showAlert = FALSE WHERE uname = '${user.toString()}';`);
     }
     res.redirect('/l/'+list);
   }
@@ -417,7 +391,7 @@ app.post('/l/:list/addItem', async function (req, res) {
     }
     var item = req.body.itemName;
     console.log(user+", "+list+", "+icount+", "+item);
-    con.query(`CALL addShoppingItem('${user.toString()}',${list},${icount},'${item.toString()}');`);
+    con.asyncQuery(`CALL addShoppingItem('${user.toString()}',${list},${icount},'${item.toString()}');`);
     res.redirect('/l/'+list);
   }
 });
@@ -427,7 +401,7 @@ app.post('/l/:list/delItem', async function (req, res) {
     var list = req.params.list;
     var items = req.body.items;
     for (i = 0; i < items.length; i++) {
-      con.query(`CALL deleteShoppingItem(${items[i]}, ${list});`);
+      con.asyncQuery(`CALL deleteShoppingItem(${items[i]}, ${list});`);
     }
     res.redirect('/l/'+list);
    }
@@ -440,7 +414,7 @@ app.post('/l/:list/crossItem', async function (req, res) {
     var items = req.body.items;
     var check = req.body.check;
     console.log(check);
-    con.query(`CALL setChecked(${items},${check});`);
+    con.asyncQuery(`CALL setChecked(${items},${check});`);
     res.redirect('/l/'+list);
   }
 });
@@ -457,7 +431,7 @@ app.post('/l/:list/share/', async function (req, res) {
     var share_key = crypto.randomBytes(16).toString('hex');
     //add Keyed Share
 
-    con.query(`INSERT INTO share_pending (share_key,list_id,list_owner,share_email,share_perms) VALUES('${share_key}','${list}','${user}','${email}','${perms}')
+    con.asyncQuery(`INSERT INTO share_pending (share_key,list_id,list_owner,share_email,share_perms) VALUES('${share_key}','${list}','${user}','${email}','${perms}')
                 ON DUPLICATE KEY UPDATE share_key='${share_key}', list_id='${list}', list_owner='${user}', share_email='${email}', share_perms='${perms}'`);
     let share_user = await con.asyncQuery(`SELECT DISTINCT * FROM User WHERE email = '${email}'`);
     share_user = share_user[0];
@@ -545,7 +519,7 @@ app.post('/l/:list/delList/',  async function (req, res) {
    if (await authorize(req.session,res,LIST_OWNER,{redirect:'/home',list:req.params.list},EXECUTE)){ //has owner
       var list = req.body.list;
       console.log(list);
-      con.query(`CALL deleteList(${list});`);
+      con.asyncQuery(`CALL deleteList(${list});`);
       res.redirect('/');
    }
 });
@@ -553,16 +527,16 @@ app.post('/l/:list/delList/',  async function (req, res) {
 app.post('/:other?/addList', async function (req, res) {
   let redirect = "/";
   if (req.params.other) {redirect+=req.params.other;}
+  console.log("addList");
   if (await authorize(req.session,res,USER,{redirect:redirect},EXECUTE)){ //is logged in
     var user = mysql.escape(req.session.uname);
     var list = mysql.escape(req.body.listName);
     var color = mysql.escape(req.body.color);
     console.log(list+", "+color);
-    con.query(`CALL addList(${list.toString()},${user.toString()},${color.toString()});`);
-    con.query(`SELECT * FROM ShoppingList WHERE Owner = ${user.toString()} ORDER BY last_change DESC;`, function(err,data) {
-      console.log(data[0].list_id);
-      res.redirect('/l/'+data[0].list_id);
-    });
+    con.asyncQuery(`CALL addList(${list.toString()},${user.toString()},${color.toString()});`);
+    let [data] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE Owner = ${user.toString()} ORDER BY last_change DESC;`);
+    console.log(data[0].list_id);
+    res.redirect('/l/'+data[0].list_id);
   }
 });
 
@@ -581,41 +555,37 @@ app.post('/editInfo', async function (req, res) {
     console.log("U: "+user);
     if (req.body.fname && req.body.lname){
       console.log("update name");
-      con.query(`UPDATE User SET fname = ${fname}, lname = ${lname} WHERE uname = ${user};`);
+      con.asyncQuery(`UPDATE User SET fname = ${fname}, lname = ${lname} WHERE uname = ${user};`);
       req.session.fname = req.body.fname;
       req.session.lname = req.body.lname;
       res.redirect('/myAccount');
     } else if (req.body.email) {
-      var emailExists = con.query(`SELECT uname FROM User WHERE email = ${email.toString()};`,
-      function(err, email) {
-        if (email.length > 0) {
-          let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`,
-          function (err, listData) {
-            res.render('user.handlebars', {
-              title: req.session.uname,
-              uname: req.session.uname,
-              fname: req.session.fname,
-              lname: req.session.lname,
-              email: req.session.email,
-              headerlists: listData,
-              colors: colors,
-              emailerror: 'The email you entered is already in use!'
-            });
-          });
-          return true;
-        }
-        else {
-          con.query(`UPDATE User SET email = ${email} WHERE uname = ${user};`);
-          req.session.email = req.body.email;
-          res.redirect('/myAccount');
-        }
-      });
+      let [email] = await con.asyncQuery(`SELECT uname FROM User WHERE email = ${email.toString()};`);
+      if (email.length > 0) {
+        let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`);
+        res.render('user.handlebars', {
+          title: req.session.uname,
+          uname: req.session.uname,
+          fname: req.session.fname,
+          lname: req.session.lname,
+          email: req.session.email,
+          headerlists: listData,
+          colors: colors,
+          emailerror: 'The email you entered is already in use!'
+        });
+        return true;
+      }
+      else {
+        con.asyncQuery(`UPDATE User SET email = ${email} WHERE uname = ${user};`);
+        req.session.email = req.body.email;
+        res.redirect('/myAccount');
+      }
     } else if (pass1 != '' && pass2 != '') {
       if (pass1 != pass2) {
         var token = crypto.randomBytes(16).toString('hex');
         console.log(token);
-        con.query(`DELETE FROM PasswordResetToken WHERE uname = ${user};`);
-        con.query(`INSERT INTO PasswordResetToken (uname,token) VALUES (${user}, ${mysql.escape(token.toString())});`);
+        con.asyncQuery(`DELETE FROM PasswordResetToken WHERE uname = ${user};`);
+        con.asyncQuery(`INSERT INTO PasswordResetToken (uname,token) VALUES (${user}, ${mysql.escape(token.toString())});`);
         res.redirect('/passwordReset/'+token);
       } else {
         //console.log(user);
@@ -633,7 +603,7 @@ app.post('/l/:list/editList', async function (req, res) {
     var list = mysql.escape(req.body.listName);
     var color = mysql.escape(req.body.color);
     console.log(listid+", "+list+", "+color);
-    con.query(`CALL editList(${listid},${list},${color});`);
+    con.asyncQuery(`CALL editList(${listid},${list},${color});`);
     res.redirect('/');
   }
 });
@@ -643,17 +613,15 @@ app.get('/:other?/myAccount', async function (req, res, next) {
     const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
     var user = mysql.escape(req.session.uname);
     console.log(user);
-    let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`,
-    function (err, listData) {
-      res.status(200).render('user', {
-        title: user,
-        uname: req.session.uname,
-        fname: req.session.fname,
-        lname: req.session.lname,
-        email: req.session.email,
-        headerlists: listData,
-        colors: colors
-      });
+    let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`);
+    res.status(200).render('user', {
+      title: user,
+      uname: req.session.uname,
+      fname: req.session.fname,
+      lname: req.session.lname,
+      email: req.session.email,
+      headerlists: listData,
+      colors: colors
     });
   }
 });
