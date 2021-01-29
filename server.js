@@ -136,6 +136,8 @@ app.get('/home', async function (req, res, next) {
     const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
     var user = req.session.uname;
     console.log(user);
+    let [sharedlists] = await con.asyncQuery(`SELECT * FROM Shared_list NATURAL JOIN ShoppingList WHERE share_user = '${user.toString()}';`)
+    console.log(sharedlists);
     let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}'`,
     function (err, listData) {
       res.status(200).render('home', {
@@ -144,6 +146,7 @@ app.get('/home', async function (req, res, next) {
         fname: req.session.fname,
         lname: req.session.lname,
         headerlists: listData,
+        sharedlists: sharedlists,
         colors: colors
       });
     });
@@ -380,6 +383,7 @@ app.get('/l/:list', async function (req, res, next) {
       if (singleListData.length == 0){
         next(); //render 404
       } else {
+        let owner = false;
         if (singleListData[0].owner == user) {
           owner = true;
         }
@@ -562,6 +566,12 @@ app.post('/shareConfirmation/:share_key', async function (req, res, next) {
     } else { //send 404
       next();
     }
+  }
+});
+
+app.post('/l/:list/unsub/', async function (req,res) {
+  if (await authorize(req.session,res,LIST_EDIT,{redirect:'/home',list:req.params.list},EXECUTE)){ //has edit
+    await con.asyncQuery(`DELETE FROM Shared_list WHERE list_id = '${req.params.list}' & share_user = '${req.params.uname}'};`);
   }
 });
 

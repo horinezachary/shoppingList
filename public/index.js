@@ -105,6 +105,28 @@ function deleteList(listId) {
    window.location.href='/';
 }
 
+$('#unsubModal').on('show.bs.modal', function (event) {
+   var button = $(event.relatedTarget);
+   var id = button.data('id');
+   var name = button.data('name');
+   var modal = $(this);
+   modal.find('#listName').text(name);
+   document.getElementById('unsub_yesButton').setAttribute( "onClick",'unsubList('+id+');');
+})
+
+function unsubList(listId) {
+   fetch('/l/'+listId+'/unsub/', {
+      method: 'POST',
+      headers: {
+         'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+         list: listId
+      })
+   });
+   window.location.href='/';
+}
+
 function showField(id) {
    var fields = ["nameFields","emailField", "password1Field", "password2Field"];
    for(i = 0; i < fields.length; i++){
