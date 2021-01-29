@@ -379,10 +379,8 @@ app.post('/updatePassword/:token', function(req, res) {
 });
 
 app.get('/l/:list', async function (req, res, next) {
-  
-  if (!req.session.uname) {
-    res.redirect('/login?redirect=/l/'+req.params.list);
-  } else {
+  if (await authorize(req.session,res,LIST_VIEW,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has view
+    let edit = await authorize(req.session,res,LIST_EDIT,{redirect:'/l/'+req.params.list,list:req.params.list},QUERY_ONLY); //has view
     const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
     var user = req.session.uname;
     var list = req.params.list;
@@ -397,10 +395,7 @@ app.get('/l/:list', async function (req, res, next) {
     con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList.list_id = ${list}`,
     function (err, singleListData) {
       if (singleListData.length == 0){
-        res.status(404).render('404.handlebars', {
-          title: '404',
-          layout: 'bare'
-        });
+        next(); //render 404
       } else {
         con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
         function (err, listItemData) {
@@ -436,12 +431,8 @@ app.get('/l/:list', async function (req, res, next) {
    }
 });
 
-
-   console.log("post");
-   if (!req.session.uname) {
-      res.redirect('/login?redirect=/l/'+req.params.list);
-   } else {
-app.post('/l/:list/showAlert', function (req, res) {
+app.post('/l/:list/showAlert', async function (req, res) {
+  if (await authorize(req.session,res,USER,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has view
       var user = req.session.uname;
       var dontshow = req.body.dontshow;
       var list = req.params.list;
@@ -454,10 +445,6 @@ app.post('/l/:list/showAlert', function (req, res) {
    }
 });
 
-app.post('/l/:list/addItem', function (req, res) {
-   if (!req.session.uname) {
-      res.redirect('/login?redirect=/l/'+req.params.list);
-   } else {
       var user = req.session.uname;
       var list = req.params.list;
       var icount = req.body.icount;
@@ -470,26 +457,22 @@ app.post('/l/:list/addItem', function (req, res) {
       con.query(`CALL addShoppingItem('${user.toString()}',${list},${icount},'${item.toString()}');`);
       res.redirect('/l/'+list);
    }
+app.post('/l/:list/addItem', async function (req, res) {
+  if (await authorize(req.session,res,LIST_EDIT,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has edit
 });
 
-app.post('/l/:list/delItem', function (req, res) {
-   if (!req.session.uname) {
-      res.redirect('/login?redirect=/l/'+req.params.list);
-   } else {
       var list = req.params.list;
       var items = req.body.items;
       for (i = 0; i < items.length; i++) {
          con.query(`CALL deleteShoppingItem(${items[i]}, ${list});`);
       }
       res.redirect('/l/'+list);
+app.post('/l/:list/delItem', async function (req, res) {
+  if (await authorize(req.session,res,LIST_EDIT,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has edit
    }
 });
 
 
-app.post('/l/:list/crossItem', function (req, res) {
-   if (!req.session.uname) {
-      res.redirect('/login?redirect=/l/'+req.params.list);
-   } else {
       var list = req.params.list;
       var items = req.body.items;
       var check = req.body.check;
@@ -497,12 +480,11 @@ app.post('/l/:list/crossItem', function (req, res) {
       con.query(`CALL setChecked(${items},${check});`);
       res.redirect('/l/'+list);
    }
+app.post('/l/:list/crossItem', async function (req, res) {
+  if (await authorize(req.session,res,LIST_EDIT,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has edit
 });
 
 app.post('/l/:list/share/', async function (req, res) {
-   if (!req.session.uname) {
-      res.redirect('/login?redirect=/l/'+req.params.list);
-   } else {
       var user = req.session.uname;
       var list = req.params.list;
       var email = req.body.email;
@@ -544,15 +526,14 @@ app.post('/l/:list/share/', async function (req, res) {
         res.json(info)
       });
       console.log("email sent to "+email);
+  if (await authorize(req.session,res,LIST_OWNER,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has owner
 
       res.redirect('/l/'+list);
    }
 });
 
-app.post('/l/:list/delList/', function (req, res) {
-   if (!req.session.uname) {
-      res.redirect('/login?redirect=/home');
-   } else {
+app.post('/l/:list/delList/',  async function (req, res) {
+   if (await authorize(req.session,res,LIST_OWNER,{redirect:'/home',list:req.params.list},EXECUTE)){ //has owner
       var list = req.body.list;
       console.log(list);
       con.query(`CALL deleteList(${list});`);
@@ -560,10 +541,6 @@ app.post('/l/:list/delList/', function (req, res) {
    }
 });
 
-app.post('/:other?/addList', function (req, res) {
-   if (!req.session.uname) {
-      res.redirect('/login?redirect=/'+req.params.other);
-   } else {
       var user = mysql.escape(req.session.uname);
       var list = mysql.escape(req.body.listName);
       var color = mysql.escape(req.body.color);
@@ -574,12 +551,14 @@ app.post('/:other?/addList', function (req, res) {
          res.redirect('/l/'+data[0].list_id);
       });
    }
+app.post('/:other?/addList', async function (req, res) {
+  let redirect = "/";
+  if (req.params.other) {redirect+=req.params.other;}
+  if (await authorize(req.session,res,USER,{redirect:redirect},EXECUTE)){ //is logged in
 });
 
 app.post('/editInfo', async function (req, res) {
-   if (!req.session.uname) {
-      res.redirect('/login?redirect=/myAccount');
-   } else {
+   if (await authorize(req.session,res,USER,{redirect:'/myAccount'},EXECUTE)){ //is logged in
       const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
       var user = mysql.escape(req.session.uname);
       var fname = mysql.escape(req.body.fname);
@@ -638,10 +617,8 @@ app.post('/editInfo', async function (req, res) {
    }
 });
 
-app.post('/l/:list/editList', function (req, res) {
-   if (!req.session.uname) {
-      res.redirect('/login?redirect=/home');
-   } else {
+app.post('/l/:list/editList', async function (req, res) {
+   if (await authorize(req.session,res,LIST_OWNER,{redirect:'/home',list:req.params.list},EXECUTE)){ //has owner
       var user = mysql.escape(req.session.uname);
       var listid = mysql.escape(req.params.list);
       var list = mysql.escape(req.body.listName);
@@ -653,9 +630,6 @@ app.post('/l/:list/editList', function (req, res) {
 });
 
 app.get('/:other?/myAccount', async function (req, res, next) {
-   if (!req.session.uname) {
-      res.redirect('/login?redirect=/myAccount');
-   } else {
       const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
       var user = mysql.escape(req.session.uname);
       console.log(user);
@@ -670,6 +644,7 @@ app.get('/:other?/myAccount', async function (req, res, next) {
             headerlists: listData,
             colors: colors
          });
+  if (await authorize(req.session,res,USER,{redirect:'/myAccount'},EXECUTE)){ //is logged in
       });
    }
 });
