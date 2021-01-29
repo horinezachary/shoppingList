@@ -1,0 +1,27 @@
+<div id="shareModal" class="modal hidden fade" aria-labelledby="shareModal"
+  aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content" style="width:30rem;">
+      <form action="/l/{{list.0.list_id}}/share" method="post">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalTitle">Share List</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <p>Enter the email address you would like to share "{{list.0.list_name}}" with and select their permission level.</p>
+            <input type="email" class="form-control" name="email" placeholder="email address" autofocus required>
+            <label for="perms" class="mt-2">Permission Level:</label>
+            <select class="form-select" aria-label="perms select" id="perms" name="perms" size="1">
+              <option value="EDIT" selected>EDIT</option>
+              <option value="VIEW">VIEW</option>
+            </select>
+          </div>
+          <div class="modal-footer">
+            <button type="submit" value="Submit" class="btn btn-dark blue-gradient px-3 py-2 z-depth-0">Send</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>

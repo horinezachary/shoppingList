@@ -1,0 +1,21 @@
+{{#if share_user}}
+  <h3>Hello {{share_user.fname}}!</h3>
+  </br>
+  <p> <b>{{uname}}</b> has shared their list, {{list}} with you, and granted you <b>{{perms}}</b> permissions. Use the link below to accept or deny the share.</p>
+  </br>
+  <p style="padding-left: 1rem;" href="{{link}}">{{link}}</p>
+{{else}}
+  <h3>Hello!</h3>
+  <p> <b>{{uname}}</b> has shared their list, {{list}} with you, and granted you <b>{{perms}}</b> permissions. If you do not already have an account, please create one here:</p>
+  </br>
+  <p style="padding-left: 1rem;" href="{{register_link}}">{{register_link}}</p>
+  <p>Then use this link to accept or deny the share.</p>
+  </br>
+  <p style="padding-left: 1rem;" href="{{link}}">{{link}}</p>
+{{/if}}
+</br>
+<p></p>
+</br>
+<p>Thank you,</p>
+<p style="line-height: 0;">Lori's List Development Team</p>
+<p style="line-height: .5;" href="mailto:lorislist@horine.dev">lorislist@horine.dev</p>

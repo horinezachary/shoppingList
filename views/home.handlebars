@@ -13,3 +13,18 @@
    {{>deleteModal}}
    {{>editListModal}}
 </div>
+
+{{#if sharedlists}}
+<div class="card list" id="sharedlistHolder" style="width: 95%; max-width: 40rem; margin-top: 10px;">
+   <div class="card-body listHeader">
+      <h3 class="font-weight-bold mb-0 user-name">Shared Lists</h3>
+   </div>
+   <ul class="list-group list-group-flush" id="list-group">
+      {{#each sharedlists}}
+         {{>sharedList}}
+      {{/each}}
+      <li class="list-group-item" id="list_add"></li>
+   </ul>
+   {{>unsubModal}}
+</div>
+{{/if}}

@@ -1,0 +1,9 @@
+<li class="list-group-item" id="{{list_id}}" style="background:#{{listColor}}; display:flex; padding: 0;">
+    <div onclick="location.href='/l/{{list_id}}';" style="display: inline-block;width: 100%;height: 3.5rem;cursor:pointer;">
+            <p class="white-text listName" style="margin:.75rem 1.25rem;">{{list_name}}</p>
+            <!--<p class="white-text listDate"> - </p>-->
+    </div>
+    <div class="float-right" style="display:inline-block; margin: .75rem 1.25rem; margin-left:0rem; min-width:120px;">
+   	<button type="button" class="confirm-delete btn-sm btn-danger ml-2 float-right" data-toggle="modal" data-target="#unsubModal" data-id="{{list_id}}" data-name="{{list_name}}">Unsubscribe</button>
+    </div>
+</li>

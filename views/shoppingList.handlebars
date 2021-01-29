@@ -7,7 +7,7 @@
       </ul>
       <hr>
       <div>
-         <form  style="display:inline-block" action="showAlert/{{list.0.list_id}}" method="post">
+         <form  style="display:inline-block" action="/l/{{list.0.list_id}}/showAlert/" method="post">
             <button type="submit" name="dontshow" value="Show" class="close" style="margin:0;"><p style="margin:0;">Don't show this again</p></button>
          </form>
             <button style="display:inline-block" type="button" class="close fr" data-dismiss="alert" aria-label="Close">
@@ -23,13 +23,14 @@
       <!--<h4 class="mb-0 list-owner"> - <a href="/u/{{listItem.0.owner}}">{{listItem.0.owner}}</a></h4>-->
       <!--<h5 class="list-date">{{listItem.0.date_created}}</h5>-->
       <button type="button" id="clearButton" class="btn btn-sm btn-outline-dark list-clearButton {{#if buttonDisabled}}disabled{{/if}}" onClick=deleteItems('{{listItem.0.list_id}}','list-group_{{listItem.0.list_id}}')>Clear</button>
+      <button type="button" id="shareButton" class="btn btn-sm btn-outline-dark list-clearButton" data-toggle="modal" data-target="#shareModal"><i class="fas fa-user-plus"></i></button>
    </div>
    <ul class="list-group list-group-flush" id="list-group_{{list.0.list_id}}">
       {{#each listItem}}
          {{> listLine}}
       {{/each}}
       <li class="list-group-item listItem" id="listItem-add_{{list.0.list_id}}" style="background:#{{list.0.listColor}};">
-         <form action="addItem/{{list.0.list_id}}" method="post">
+         <form action="/l/{{list.0.list_id}}/addItem" method="post">
             <div class="form-row">
                <div class="col-2">
                   <input type="number" class="form-control" name="icount" placeholder="#" min="1">
@@ -49,4 +50,5 @@
          </form>
       </li>
    </ul>
+   {{>shareModal}}
 </div>
