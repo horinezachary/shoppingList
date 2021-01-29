@@ -6,10 +6,15 @@ var con = require('./sqlConfig');
 con.start(config.database);
 
 const USER = 1;
-const LIST = 2;
+const LIST_VIEW = 2;
+const LIST_EDIT = 3;
+const LIST_OWNER = 4;
+
 const OWNER = "OWNER";
 const SHARE_EDIT = "EDIT";
 const SHARE_VIEW = "VIEW";
+const QUERY_ONLY = false;
+const EXECUTE = true;
 
 var path = require('path');
 const url = require('url');
@@ -69,23 +74,45 @@ let ViewOption = (transport, hbs) => {
     }));
 }
 
-async function authorize(session, authLevel, page) {
+async function authorize(session, res, authLevel, page, execute) {
   if (!session.uname) {
-    res.redirect('/login?redirect=/'+page);
+    res.redirect('/login?redirect='+page.redirect);
     return false;
-  } else if (authLevel == LIST){
-    let list_id = page.substr(page.indexOf('/',page.indexOf('/')+1)+1,page.indexOf(page.indexOf('/',page.indexOf('/')+1)+1));
+  } else if (authLevel == USER) {
+    return true;
+  } else if (authLevel == LIST_VIEW || authLevel == LIST_EDIT || authLevel == LIST_OWNER){
+    let auth = "";
+    let list_id = page.list;
     console.log(list_id);
     let [list] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE list_id = '${list_id}';`);
     console.log(list);
     if (list[0].owner == session.uname) {
-      return OWNER;
+      owner = true;
     } else {
       let [shares] = await con.asyncQuery(`SELECT * FROM Shared_list WHERE list_id = '${list_id}' & share_user = '${session.uname}' & accepted = '1';`);
       if (shares[0]) {
-        return shares[0].share_perms;
+        auth = shares[0].share_perms;
       }
     }
+    if (authLevel == LIST_OWNER && (list[0].owner == session.uname)) {
+      return true;
+    } else if (authLevel == LIST_EDIT && (auth == SHARE_EDIT || list[0].owner == session.uname)) {
+      return true;
+    } else if (authLevel == LIST_VIEW && (auth == SHARE_VIEW || auth == SHARE_EDIT || list[0].owner == session.uname)) {
+      return true;
+    } else if (execute){
+      res.status(404).render('404.handlebars', {
+         title: '404',
+         layout: 'bare'
+      });
+      return false;
+    }
+  } else if (execute){
+    res.status(404).render('404.handlebars', {
+       title: '404',
+       layout: 'bare'
+    });
+    return false;
   }
 }
 
