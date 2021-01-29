@@ -375,12 +375,15 @@ app.get('/l/:list', async function (req, res, next) {
       showAlert = false;
     }
     list = mysql.escape(list);
-    con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList.list_id = ${list}`,
+    con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.list_id = ${list}`,
     function (err, singleListData) {
       if (singleListData.length == 0){
         next(); //render 404
       } else {
-        con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList.owner = '${user.toString()}' AND ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
+        if (singleListData[0].owner == user) {
+          owner = true;
+        }
+        con.query(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`,
         function (err, listItemData) {
           var buttonDisabled = true;
           for (i = 0; i < listItemData.length; i++) {
@@ -404,7 +407,9 @@ app.get('/l/:list', async function (req, res, next) {
                 headerlists: listData,
                 colors: colors,
                 buttonDisabled: buttonDisabled,
-                showAlert: showAlert
+                showAlert: showAlert,
+                edit: edit,
+                owner: owner
               });
             });
           });
