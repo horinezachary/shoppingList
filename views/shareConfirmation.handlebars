@@ -1,0 +1,16 @@
+<div class="card list" style="width: 30rem;">
+	<div class="card-header">
+		<h3>Share Confirmation</h3>
+	</div>
+	<div class="card-body">
+      <p>Do you want to accept <b>{{share_perms}}</b> permissions from <b>{{share_list.owner}}</b> for the list <b>{{share_list.list_name}}</b>?</p>
+		<form action="/shareConfirmation/{{share_key}}" method="POST">
+      <div class="row">
+        <div class="form-group"  style="margin: 0 auto; float: none;">
+          <input type="submit" class="btn btn-success" name="confirm" value="ACCEPT"/>
+          <input type="submit" class="btn btn-danger" name="confirm" value="DENY"/>
+        </div>
+      </div>
+		</form>
+	</div>
+</div>

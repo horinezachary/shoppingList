@@ -473,51 +473,96 @@ app.post('/l/:list/crossItem', async function (req, res) {
 });
 
 app.post('/l/:list/share/', async function (req, res) {
-      var user = req.session.uname;
-      var list = req.params.list;
-      var email = req.body.email;
-      var perms = req.body.perms;
-      console.log(user+", "+list+", "+email+", "+perms);
-
-      //generate key
-      var share_key = crypto.randomBytes(16).toString('hex');
-      //add Keyed Share
-
-      con.query(`INSERT INTO Shared_list (share_key,list_id,owner,share_email,share_perms) VALUES('${share_key}','${list}','${user}','${email}','${perms}')
-                  ON DUPLICATE KEY UPDATE share_key='${share_key}', list_id='${list}', owner='${user}', share_email='${email}', share_perms='${perms}'`);
-      let share_user = await con.asyncQuery(`SELECT DISTINCT * FROM User WHERE email = '${email}'`);
-      share_user = share_user[0];
-      console.log(share_user);
-      //send email
-      ViewOption(transporter,nodemailerhbs);
-      let HelperOptions = {
-        from: '"Loris-List" <noreply@horine.dev>',
-        to: email,
-        subject: user + ' would like to share a list with you - Lori\'s List',
-        template: 'share',
-        context: {
-          uname: user,
-          share_user: share_user[0],
-          perms: perms,
-          list_name: list,
-          link: 'https://'+config.url+'/share/'+share_key,
-          register_link: 'https://'+config.url+'/register'
-        }
-      };
-      transporter.sendMail(HelperOptions, (error,info) => {
-        if(error) {
-          console.log(error);
-          res.json(error);
-        }
-        console.log("email is sent");
-        console.log(info);
-        res.json(info)
-      });
-      console.log("email sent to "+email);
   if (await authorize(req.session,res,LIST_OWNER,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has owner
+    var user = req.session.uname;
+    var list = req.params.list;
+    var email = req.body.email;
+    var perms = req.body.perms;
+    console.log(user+", "+list+", "+email+", "+perms);
 
-      res.redirect('/l/'+list);
+    //generate key
+    var share_key = crypto.randomBytes(16).toString('hex');
+    //add Keyed Share
+
+    con.query(`INSERT INTO Shared_list (share_key,list_id,owner,share_email,share_perms) VALUES('${share_key}','${list}','${user}','${email}','${perms}')
+                ON DUPLICATE KEY UPDATE share_key='${share_key}', list_id='${list}', owner='${user}', share_email='${email}', share_perms='${perms}'`);
+    let share_user = await con.asyncQuery(`SELECT DISTINCT * FROM User WHERE email = '${email}'`);
+    share_user = share_user[0];
+    console.log(share_user);
+    //send email
+    ViewOption(transporter,nodemailerhbs);
+    let HelperOptions = {
+      from: '"Loris-List" <noreply@horine.dev>',
+      to: email,
+      subject: user + ' would like to share a list with you - Lori\'s List',
+      template: 'share',
+      context: {
+        uname: user,
+        share_user: share_user[0],
+        perms: perms,
+        list_name: list,
+        link: 'https://'+config.url+'/share/'+share_key,
+        register_link: 'https://'+config.url+'/register'
+      }
+    };
+    transporter.sendMail(HelperOptions, (error,info) => {
+      if(error) {
+        console.log(error);
+        res.json(error);
+      }
+      console.log("email is sent");
+      console.log(info);
+      res.json(info)
+    });
+    console.log("email sent to "+email);
+    res.redirect('/l/'+list);
    }
+});
+
+app.get('/share/:share_key', async function (req, res, next) {
+  if (await authorize(req.session,res,USER,{redirect:'/share/'+req.params.share_key},EXECUTE)){ //is logged in
+    let [share_line] = await con.asyncQuery(`SELECT DISTINCT * FROM Shared_list WHERE share_key = ${mysql.escape(req.params.share_key)};`);
+    let [share_list] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE list_id = '${share_line[0].list_id}';`);
+    let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${mysql.escape(req.session.uname)}`);
+    console.log(share_line);
+    console.log(share_list);
+    console.log(req.session);
+    if (share_line[0].share_email == req.session.email) {
+      res.status(200).render('shareConfirmation', {
+        share_key: req.params.share_key,
+        share_list: share_list[0],
+        share_perms: share_line[0].share_perms,
+        headerlists: listData
+      });
+    } else { //send 404
+      next();
+    }
+  }
+});
+
+app.post('/shareConfirmation/:share_key', async function (req, res, next) {
+  if (await authorize(req.session,res,USER,{redirect:'/login?redirect=/shareConfirmation/'+req.params.share_key},EXECUTE)){ //is logged in
+    let [share_line] = await con.asyncQuery(`SELECT DISTINCT * FROM Shared_list WHERE share_key = ${mysql.escape(req.params.share_key)};`);
+    let [share_list] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE list_id = '${share_line[0].list_id}';`);
+    let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${mysql.escape(req.session.uname)}`);
+    if (req.body.confirm == 'ACCEPT') {
+      await con.asyncQuery(`UPDATE Shared_list SET accepted = true, share_user = '${req.session.uname}', share_email = '${req.session.email}' WHERE share_key = ${mysql.escape(req.params.share_key)};`);
+      res.status(200).render('shareAccept', {
+        share_list: share_list[0],
+        share_perms: share_line[0].share_perms,
+        headerlists: listData
+      });
+    } else if (req.body.confirm == 'DENY'){
+      await con.asyncQuery(`DELETE FROM Shared_list WHERE share_key = ${mysql.escape(req.params.share_key)};`);
+      res.status(200).render('shareDeny', {
+        share_list: share_list[0],
+        share_perms: share_line[0].share_perms,
+        headerlists: listData
+      });
+    } else { //send 404
+      next();
+    }
+  }
 });
 
 app.post('/l/:list/delList/',  async function (req, res) {
