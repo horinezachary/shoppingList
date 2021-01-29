@@ -52,26 +52,26 @@ app.use(session({
 }));
 
 let transporter = nodemailer.createTransport({
-   host: "smtp.gmail.com",
-   port: 465,
-   secure: true, // true for 465, false for other ports
-   auth: {
-      user: 'lorislist.noreply',
-      pass: 'rbovqgckojvrcvwi'
-   }
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true, // true for 465, false for other ports
+  auth: {
+    user: 'lorislist.noreply',
+    pass: 'rbovqgckojvrcvwi'
+  }
 });
 
 let ViewOption = (transport, hbs) => {
-    transport.use('compile', hbs({
-      viewEngine: {
-         extName: '.hbs',
-         partialsDir: 'views/partials',
-         layoutsDir: 'views/layouts',
-         defaultLayout: 'email.handlebars',
-      },
-      viewPath: 'views/email',
-      extName: '.handlebars'
-    }));
+  transport.use('compile', hbs({
+    viewEngine: {
+      extName: '.hbs',
+      partialsDir: 'views/partials',
+      layoutsDir: 'views/layouts',
+      defaultLayout: 'email.handlebars',
+    },
+    viewPath: 'views/email',
+    extName: '.handlebars'
+  }));
 }
 
 async function authorize(session, res, authLevel, page, execute) {
@@ -102,60 +102,60 @@ async function authorize(session, res, authLevel, page, execute) {
       return true;
     } else if (execute){
       res.status(404).render('404.handlebars', {
-         title: '404',
-         layout: 'bare'
+        title: '404',
+        layout: 'bare'
       });
       return false;
     }
   } else if (execute){
     res.status(404).render('404.handlebars', {
-       title: '404',
-       layout: 'bare'
+      title: '404',
+      layout: 'bare'
     });
     return false;
   }
 }
 
 app.get('/', function (req, res, next) {
-   if (req.session.uname) {
-      res.redirect('/home');
-   } else {
-      res.status(200).render('info', {
-         title: 'Lori\'s List',
-         layout: 'bare',
-         loginButton: true
-      })
-   }
+  if (req.session.uname) {
+    res.redirect('/home');
+  } else {
+    res.status(200).render('info', {
+      title: 'Lori\'s List',
+      layout: 'bare',
+      loginButton: true
+    })
+  }
 });
 
 
 app.get('/home', async function (req, res, next) {
-   if (!req.session.uname) {
-      res.redirect('/login?redirect=/home');
-   } else {
-      const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
-      var user = req.session.uname;
-      console.log(user);
-      let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}'`,
-         function (err, listData) {
-         res.status(200).render('home', {
-            title: 'Home',
-            uname: req.session.uname,
-            fname: req.session.fname,
-            lname: req.session.lname,
-            headerlists: listData,
-            colors: colors
-         });
+  if (!req.session.uname) {
+    res.redirect('/login?redirect=/home');
+  } else {
+    const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
+    var user = req.session.uname;
+    console.log(user);
+    let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}'`,
+    function (err, listData) {
+      res.status(200).render('home', {
+        title: 'Home',
+        uname: req.session.uname,
+        fname: req.session.fname,
+        lname: req.session.lname,
+        headerlists: listData,
+        colors: colors
       });
-   }
+    });
+  }
 });
 
 function updatePassword(uname,passIn) {
-   bcrypt.hash(passIn, saltRounds, function(err, hash) {
-      //store hash
-      con.query(`UPDATE User SET password = '${hash}', salt='', hash='BCR' WHERE uname = ${uname.toString()};`);
-      console.log(hash);
-   });
+  bcrypt.hash(passIn, saltRounds, function(err, hash) {
+    //store hash
+    con.query(`UPDATE User SET password = '${hash}', salt='', hash='BCR' WHERE uname = ${uname.toString()};`);
+    console.log(hash);
+  });
 }
 
 app.post('/login', function(req, res) {
@@ -163,11 +163,6 @@ app.post('/login', function(req, res) {
   con.query(`SELECT * FROM User WHERE uname = ${uname.toString()};`,
     function(err, user) {
       if (!user || user.length == 0) {
-        /*res.render('login.handlebars', {
-          title: 'Login',
-          layout: 'bare',
-          error: 'Invalid username or password.'
-        });*/
         res.redirect("/login/?error="+'Invalid username or password.'+"&redirect="+req.query.redirect);
       } else {
         var passIn = mysql.escape(req.body.password);
@@ -192,46 +187,35 @@ app.post('/login', function(req, res) {
               res.redirect('/');
             }
           } else {
-            /*res.render('login.handlebars', {
-              title: 'Login',
-              layout: 'bare',
-              error: 'Invalid username or password.'
-            });*/
             res.redirect("/login/?error="+'Invalid username or password.'+"&redirect="+req.query.redirect);
           }
-        }
-        else if (user[0].hash == "BCR") {
+        } else if (user[0].hash == "BCR") {
           bcrypt.compare(passIn, user[0].password, function(err, result) {
             if (result == true) {
-                //set values
-                req.session.uname = user[0].uname;
-                req.session.fname = user[0].fname;
-                req.session.lname = user[0].lname;
-                req.session.email = user[0].email;
-                req.session.showAlert = user[0].showAlert;
-                //go home
-                console.log(req.query);
-                if (req.query.redirect) {
-                  res.redirect(req.query.redirect);
-                } else{
-                  res.redirect('/');
-                }
+              //set values
+              req.session.uname = user[0].uname;
+              req.session.fname = user[0].fname;
+              req.session.lname = user[0].lname;
+              req.session.email = user[0].email;
+              req.session.showAlert = user[0].showAlert;
+              //go home
+              console.log(req.query);
+              if (req.query.redirect) {
+                res.redirect(req.query.redirect);
+              } else{
+                res.redirect('/');
               }
-              if (result == false) {
-                /*res.render('login.handlebars', {
-                  title: 'Login',
-                  layout: 'bare',
-                  error: 'Invalid username or password.'
-                });*/
-                res.redirect("/login/?error="+'Invalid username or password.'+"&redirect="+req.query.redirect);
-              }
+            }
+            if (result == false) {
+              res.redirect("/login/?error="+'Invalid username or password.'+"&redirect="+req.query.redirect);
+            }
           });
         } else {
-           res.render('login.handlebars', {
-              title: 'Login',
-              layout: 'bare',
-              error: 'Invalid username or password.'
-           });
+          res.render('login.handlebars', {
+            title: 'Login',
+            layout: 'bare',
+            error: 'Invalid username or password.'
+          });
         }
       }
    });
@@ -243,139 +227,138 @@ app.get('/logout', function (req, res, next) {
 });
 
 app.post('/register', function(req, res) {
-   var fname = mysql.escape(req.body.fname);
-   var lname = mysql.escape(req.body.lname);
-   var uname = mysql.escape(req.body.username);
-   var email = mysql.escape(req.body.email);
-   var pass1 = mysql.escape(req.body.password);
-   var pass2 = mysql.escape(req.body.password2);
-   var emailExists = con.query(`SELECT uname FROM User WHERE email = ${email.toString()};`,
-      function(err, emailIn) {
-   var userExists = con.query(`SELECT uname FROM User WHERE uname = ${uname.toString()};`,
-      function(err, users) {
-         if (emailIn.length > 0) {
-            res.render('register.handlebars', {
-               title: 'Register',
-               layout: 'bare',
-               error: 'Email is already in use!'
-            });
-            return true;
-         }
-         else if (users.length > 0) {
-            res.render('register.handlebars', {
-               title: 'Register',
-               layout: 'bare',
-               error: 'Username is already in use!'
-            });
-            return true;
-         }
-         else if (pass1 != pass2) {
-            res.render('register.handlebars', {
-               title: 'Register',
-               layout: 'bare',
-               error: 'Passwords must match.'
-            });
-         } else {
-            bcrypt.hash(pass1, saltRounds, function(err, hash) {
-               con.query(`INSERT INTO User (uname,fname,lname,email,password,hash)
-                           VALUES (${uname.toString()},${fname.toString()},${lname.toString()},${email.toString()},'${hash.toString()}','BCR');`,
-                  function (err, userData) {
-                     console.log(err);
-                  });
-            });
-
-            req.session.uname = req.body.username;
-            req.session.fname = req.body.fname;
-            req.session.lname = req.body.lname;
-            req.session.email = req.body.email;
-            if (req.query.redirect) {
-              res.redirect(req.query.redirect);
-            } else{
-              res.redirect('/');
-            }
-         }
-   });
-   });
+  var fname = mysql.escape(req.body.fname);
+  var lname = mysql.escape(req.body.lname);
+  var uname = mysql.escape(req.body.username);
+  var email = mysql.escape(req.body.email);
+  var pass1 = mysql.escape(req.body.password);
+  var pass2 = mysql.escape(req.body.password2);
+  var emailExists = con.query(`SELECT uname FROM User WHERE email = ${email.toString()};`,
+  function(err, emailIn) {
+    var userExists = con.query(`SELECT uname FROM User WHERE uname = ${uname.toString()};`,
+    function(err, users) {
+      if (emailIn.length > 0) {
+        res.render('register.handlebars', {
+          title: 'Register',
+          layout: 'bare',
+          error: 'Email is already in use!'
+        });
+        return true;
+      }
+      else if (users.length > 0) {
+        res.render('register.handlebars', {
+          title: 'Register',
+          layout: 'bare',
+          error: 'Username is already in use!'
+        });
+        return true;
+      }
+      else if (pass1 != pass2) {
+        res.render('register.handlebars', {
+          title: 'Register',
+          layout: 'bare',
+          error: 'Passwords must match.'
+        });
+      } else {
+        bcrypt.hash(pass1, saltRounds, function(err, hash) {
+          con.query(`INSERT INTO User (uname,fname,lname,email,password,hash)
+                    VALUES (${uname.toString()},${fname.toString()},${lname.toString()},${email.toString()},'${hash.toString()}','BCR');`,
+          function (err, userData) {
+            console.log(err);
+          });
+        });
+        req.session.uname = req.body.username;
+        req.session.fname = req.body.fname;
+        req.session.lname = req.body.lname;
+        req.session.email = req.body.email;
+        if (req.query.redirect) {
+          res.redirect(req.query.redirect);
+        } else{
+          res.redirect('/');
+        }
+      }
+    });
+  });
 });
 
 app.get('/passwordReset/:token', function(req, res, next) {
-   var token = mysql.escape(req.params.token);
-   console.log(req.params.token);
-   con.query(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`,
-      function (err, tokens) {
-         if (tokens.length > 0) {
-            console.log(tokens.length);
-            res.render('passwordReset.handlebars',{
-               title: 'Password Reset',
-               layout: 'bare',
-               token: req.params.token
-            });
-         } else {
-            res.status(404).render('404.handlebars');
-         }
-   });
+  var token = mysql.escape(req.params.token);
+  console.log(req.params.token);
+  con.query(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`,
+  function (err, tokens) {
+    if (tokens.length > 0) {
+      console.log(tokens.length);
+      res.render('passwordReset.handlebars',{
+        title: 'Password Reset',
+        layout: 'bare',
+        token: req.params.token
+      });
+    } else {
+      res.status(404).render('404.handlebars');
+    }
+  });
 });
 
 app.post('/passwordReset', function(req, res) {
-   var email = mysql.escape(req.body.email);
-   con.query(`SELECT * FROM User WHERE email = ${email}`,
-      function (err, uEmail) {
-         if (uEmail.length > 0) {
-            console.log(uEmail[0].uname);
-            //generate token
-            var token = crypto.randomBytes(16).toString('hex');
-            console.log(token);
-            con.query(`DELETE FROM PasswordResetToken WHERE uname = '${uEmail[0].uname.toString()}';`);
-            con.query(`INSERT INTO PasswordResetToken (uname,token) VALUES ('${uEmail[0].uname.toString()}', ${mysql.escape(token.toString())});`);
-            //send email
-            ViewOption(transporter,nodemailerhbs);
-            let HelperOptions = {
-              from: '"Loris-List" <noreply@horine.dev>',
-              to: uEmail[0].email,
-              subject: 'Password Reset - Lori\'s List',
-              template: 'reset',
-              context: {
-                name: uEmail[0].fname+' '+uEmail[0].lname,
-                email: uEmail[0].email,
-                uname: uEmail[0].uname,
-                link: 'https://'+config.url+'/passwordReset/'+token,
-              }
-            };
-            transporter.sendMail(HelperOptions, (error,info) => {
-              if(error) {
-                console.log(error);
-                res.json(error);
-              }
-              console.log("email is send");
-              console.log(info);
-              res.json(info)
-            });
-            console.log("email sent to"+email);
-         } else {console.log("no match!");}
-         res.redirect('/login');
-   });
+  var email = mysql.escape(req.body.email);
+  con.query(`SELECT * FROM User WHERE email = ${email}`,
+  function (err, uEmail) {
+    if (uEmail.length > 0) {
+      console.log(uEmail[0].uname);
+      //generate token
+      var token = crypto.randomBytes(16).toString('hex');
+      console.log(token);
+      con.query(`DELETE FROM PasswordResetToken WHERE uname = '${uEmail[0].uname.toString()}';`);
+      con.query(`INSERT INTO PasswordResetToken (uname,token) VALUES ('${uEmail[0].uname.toString()}', ${mysql.escape(token.toString())});`);
+      //send email
+      ViewOption(transporter,nodemailerhbs);
+      let HelperOptions = {
+        from: '"Loris-List" <noreply@horine.dev>',
+        to: uEmail[0].email,
+        subject: 'Password Reset - Lori\'s List',
+        template: 'reset',
+        context: {
+          name: uEmail[0].fname+' '+uEmail[0].lname,
+          email: uEmail[0].email,
+          uname: uEmail[0].uname,
+          link: 'https://'+config.url+'/passwordReset/'+token,
+        }
+      };
+      transporter.sendMail(HelperOptions, (error,info) => {
+        if(error) {
+          console.log(error);
+          res.json(error);
+        }
+        console.log("email is send");
+        console.log(info);
+        res.json(info)
+      });
+      console.log("email sent to"+email);
+    } else {console.log("no match!");}
+    res.redirect('/login');
+  });
 });
 
 app.post('/updatePassword/:token', function(req, res) {
-   var token = mysql.escape(req.params.token);
-   var password = mysql.escape(req.body.password);
-   var password2 = mysql.escape(req.body.password2);
-   if (password != password2) {
-      res.redirect('/passwordReset/'+token);
-   } else {
-      con.query(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`,
-         function (err, reset) {
-            console.log(reset.length);
-            updatePassword(reset[0].uname,password)
-            con.query(`DELETE FROM PasswordResetToken WHERE uname = '${reset[0].uname.toString()}';`);
+  var token = mysql.escape(req.params.token);
+  var password = mysql.escape(req.body.password);
+  var password2 = mysql.escape(req.body.password2);
+  if (password != password2) {
+    res.redirect('/passwordReset/'+token);
+  } else {
+    con.query(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`,
+    function (err, reset) {
+      console.log(reset.length);
+      updatePassword(reset[0].uname,password)
+      con.query(`DELETE FROM PasswordResetToken WHERE uname = '${reset[0].uname.toString()}';`);
 
-            req.session.uname = req.body.username;
-            req.session.fname = req.body.fname;
-            req.session.lname = req.body.lname;
-            req.session.email = req.body.email;
-            res.redirect('/');
-      });
-   }
+      req.session.uname = req.body.username;
+      req.session.fname = req.body.fname;
+      req.session.lname = req.body.lname;
+      req.session.email = req.body.email;
+      res.redirect('/');
+    });
+  }
 });
 
 app.get('/l/:list', async function (req, res, next) {
@@ -428,60 +411,60 @@ app.get('/l/:list', async function (req, res, next) {
         });
       }
     });
-   }
+  }
 });
 
 app.post('/l/:list/showAlert', async function (req, res) {
   if (await authorize(req.session,res,USER,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has view
-      var user = req.session.uname;
-      var dontshow = req.body.dontshow;
-      var list = req.params.list;
-      console.log(dontshow);
-      if (dontshow == 'Show') {
-         req.session.showAlert = 0;
-         con.query(`UPDATE User SET showAlert = FALSE WHERE uname = '${user.toString()}';`);
-      }
-      res.redirect('/l/'+list);
-   }
+    var user = req.session.uname;
+    var dontshow = req.body.dontshow;
+    var list = req.params.list;
+    console.log(dontshow);
+    if (dontshow == 'Show') {
+      req.session.showAlert = 0;
+      con.query(`UPDATE User SET showAlert = FALSE WHERE uname = '${user.toString()}';`);
+    }
+    res.redirect('/l/'+list);
+  }
 });
 
-      var user = req.session.uname;
-      var list = req.params.list;
-      var icount = req.body.icount;
-      console.log("icount: \'"+icount+"\'");
-      if (!icount) {
-         icount = 'NULL';
-      }
-      var item = req.body.itemName;
-      console.log(user+", "+list+", "+icount+", "+item);
-      con.query(`CALL addShoppingItem('${user.toString()}',${list},${icount},'${item.toString()}');`);
-      res.redirect('/l/'+list);
-   }
 app.post('/l/:list/addItem', async function (req, res) {
   if (await authorize(req.session,res,LIST_EDIT,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has edit
+    var user = req.session.uname;
+    var list = req.params.list;
+    var icount = req.body.icount;
+    console.log("icount: \'"+icount+"\'");
+    if (!icount) {
+      icount = 'NULL';
+    }
+    var item = req.body.itemName;
+    console.log(user+", "+list+", "+icount+", "+item);
+    con.query(`CALL addShoppingItem('${user.toString()}',${list},${icount},'${item.toString()}');`);
+    res.redirect('/l/'+list);
+  }
 });
 
-      var list = req.params.list;
-      var items = req.body.items;
-      for (i = 0; i < items.length; i++) {
-         con.query(`CALL deleteShoppingItem(${items[i]}, ${list});`);
-      }
-      res.redirect('/l/'+list);
 app.post('/l/:list/delItem', async function (req, res) {
   if (await authorize(req.session,res,LIST_EDIT,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has edit
+    var list = req.params.list;
+    var items = req.body.items;
+    for (i = 0; i < items.length; i++) {
+      con.query(`CALL deleteShoppingItem(${items[i]}, ${list});`);
+    }
+    res.redirect('/l/'+list);
    }
 });
 
 
-      var list = req.params.list;
-      var items = req.body.items;
-      var check = req.body.check;
-      console.log(check);
-      con.query(`CALL setChecked(${items},${check});`);
-      res.redirect('/l/'+list);
-   }
 app.post('/l/:list/crossItem', async function (req, res) {
   if (await authorize(req.session,res,LIST_EDIT,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has edit
+    var list = req.params.list;
+    var items = req.body.items;
+    var check = req.body.check;
+    console.log(check);
+    con.query(`CALL setChecked(${items},${check});`);
+    res.redirect('/l/'+list);
+  }
 });
 
 app.post('/l/:list/share/', async function (req, res) {
@@ -541,112 +524,112 @@ app.post('/l/:list/delList/',  async function (req, res) {
    }
 });
 
-      var user = mysql.escape(req.session.uname);
-      var list = mysql.escape(req.body.listName);
-      var color = mysql.escape(req.body.color);
-      console.log(list+", "+color);
-      con.query(`CALL addList(${list.toString()},${user.toString()},${color.toString()});`);
-      con.query(`SELECT * FROM ShoppingList WHERE Owner = ${user.toString()} ORDER BY last_change DESC;`, function(err,data) {
-         console.log(data[0].list_id);
-         res.redirect('/l/'+data[0].list_id);
-      });
-   }
 app.post('/:other?/addList', async function (req, res) {
   let redirect = "/";
   if (req.params.other) {redirect+=req.params.other;}
   if (await authorize(req.session,res,USER,{redirect:redirect},EXECUTE)){ //is logged in
+    var user = mysql.escape(req.session.uname);
+    var list = mysql.escape(req.body.listName);
+    var color = mysql.escape(req.body.color);
+    console.log(list+", "+color);
+    con.query(`CALL addList(${list.toString()},${user.toString()},${color.toString()});`);
+    con.query(`SELECT * FROM ShoppingList WHERE Owner = ${user.toString()} ORDER BY last_change DESC;`, function(err,data) {
+      console.log(data[0].list_id);
+      res.redirect('/l/'+data[0].list_id);
+    });
+  }
 });
 
 app.post('/editInfo', async function (req, res) {
-   if (await authorize(req.session,res,USER,{redirect:'/myAccount'},EXECUTE)){ //is logged in
-      const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
-      var user = mysql.escape(req.session.uname);
-      var fname = mysql.escape(req.body.fname);
-      var lname = mysql.escape(req.body.lname);
-      var email = mysql.escape(req.body.email);
-      var pass1 = mysql.escape(req.body.password);
-      var pass2 = mysql.escape(req.body.password2);
-      console.log("F: "+fname);
-      console.log("L: "+lname);
-      console.log("E: "+email);
-      console.log("U: "+user);
-      if (req.body.fname && req.body.lname){
-         console.log("update name");
-         con.query(`UPDATE User SET fname = ${fname}, lname = ${lname} WHERE uname = ${user};`);
-         req.session.fname = req.body.fname;
-         req.session.lname = req.body.lname;
-         res.redirect('/myAccount');
-      } else if (req.body.email) {
-         var emailExists = con.query(`SELECT uname FROM User WHERE email = ${email.toString()};`,
-            function(err, email) {
-               if (email.length > 0) {
-                  let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`,
-                     function (err, listData) {
-                        res.render('user.handlebars', {
-                           title: req.session.uname,
-                           uname: req.session.uname,
-                           fname: req.session.fname,
-                           lname: req.session.lname,
-                           email: req.session.email,
-                           headerlists: listData,
-                           colors: colors,
-                           emailerror: 'The email you entered is already in use!'
-                        });
-                  });
-                  return true;
-               }
-               else {
-                  con.query(`UPDATE User SET email = ${email} WHERE uname = ${user};`);
-                  req.session.email = req.body.email;
-                  res.redirect('/myAccount');
-               }
+  if (await authorize(req.session,res,USER,{redirect:'/myAccount'},EXECUTE)){ //is logged in
+    const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
+    var user = mysql.escape(req.session.uname);
+    var fname = mysql.escape(req.body.fname);
+    var lname = mysql.escape(req.body.lname);
+    var email = mysql.escape(req.body.email);
+    var pass1 = mysql.escape(req.body.password);
+    var pass2 = mysql.escape(req.body.password2);
+    console.log("F: "+fname);
+    console.log("L: "+lname);
+    console.log("E: "+email);
+    console.log("U: "+user);
+    if (req.body.fname && req.body.lname){
+      console.log("update name");
+      con.query(`UPDATE User SET fname = ${fname}, lname = ${lname} WHERE uname = ${user};`);
+      req.session.fname = req.body.fname;
+      req.session.lname = req.body.lname;
+      res.redirect('/myAccount');
+    } else if (req.body.email) {
+      var emailExists = con.query(`SELECT uname FROM User WHERE email = ${email.toString()};`,
+      function(err, email) {
+        if (email.length > 0) {
+          let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`,
+          function (err, listData) {
+            res.render('user.handlebars', {
+              title: req.session.uname,
+              uname: req.session.uname,
+              fname: req.session.fname,
+              lname: req.session.lname,
+              email: req.session.email,
+              headerlists: listData,
+              colors: colors,
+              emailerror: 'The email you entered is already in use!'
             });
-      } else if (pass1 != '' && pass2 != '') {
-         if (pass1 != pass2) {
-            var token = crypto.randomBytes(16).toString('hex');
-            console.log(token);
-            con.query(`DELETE FROM PasswordResetToken WHERE uname = ${user};`);
-            con.query(`INSERT INTO PasswordResetToken (uname,token) VALUES (${user}, ${mysql.escape(token.toString())});`);
-            res.redirect('/passwordReset/'+token);
-         } else {
-            //console.log(user);
-            updatePassword(user,pass1);
-            res.redirect('/myAccount');
-         }
+          });
+          return true;
+        }
+        else {
+          con.query(`UPDATE User SET email = ${email} WHERE uname = ${user};`);
+          req.session.email = req.body.email;
+          res.redirect('/myAccount');
+        }
+      });
+    } else if (pass1 != '' && pass2 != '') {
+      if (pass1 != pass2) {
+        var token = crypto.randomBytes(16).toString('hex');
+        console.log(token);
+        con.query(`DELETE FROM PasswordResetToken WHERE uname = ${user};`);
+        con.query(`INSERT INTO PasswordResetToken (uname,token) VALUES (${user}, ${mysql.escape(token.toString())});`);
+        res.redirect('/passwordReset/'+token);
+      } else {
+        //console.log(user);
+        updatePassword(user,pass1);
+        res.redirect('/myAccount');
       }
-   }
+    }
+  }
 });
 
 app.post('/l/:list/editList', async function (req, res) {
-   if (await authorize(req.session,res,LIST_OWNER,{redirect:'/home',list:req.params.list},EXECUTE)){ //has owner
-      var user = mysql.escape(req.session.uname);
-      var listid = mysql.escape(req.params.list);
-      var list = mysql.escape(req.body.listName);
-      var color = mysql.escape(req.body.color);
-      console.log(listid+", "+list+", "+color);
-      con.query(`CALL editList(${listid},${list},${color});`);
-      res.redirect('/');
-   }
+  if (await authorize(req.session,res,LIST_OWNER,{redirect:'/home',list:req.params.list},EXECUTE)){ //has owner
+    var user = mysql.escape(req.session.uname);
+    var listid = mysql.escape(req.params.list);
+    var list = mysql.escape(req.body.listName);
+    var color = mysql.escape(req.body.color);
+    console.log(listid+", "+list+", "+color);
+    con.query(`CALL editList(${listid},${list},${color});`);
+    res.redirect('/');
+  }
 });
 
 app.get('/:other?/myAccount', async function (req, res, next) {
-      const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
-      var user = mysql.escape(req.session.uname);
-      console.log(user);
-      let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`,
-         function (err, listData) {
-         res.status(200).render('user', {
-            title: user,
-            uname: req.session.uname,
-            fname: req.session.fname,
-            lname: req.session.lname,
-            email: req.session.email,
-            headerlists: listData,
-            colors: colors
-         });
   if (await authorize(req.session,res,USER,{redirect:'/myAccount'},EXECUTE)){ //is logged in
+    const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
+    var user = mysql.escape(req.session.uname);
+    console.log(user);
+    let listData = con.query(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`,
+    function (err, listData) {
+      res.status(200).render('user', {
+        title: user,
+        uname: req.session.uname,
+        fname: req.session.fname,
+        lname: req.session.lname,
+        email: req.session.email,
+        headerlists: listData,
+        colors: colors
       });
-   }
+    });
+  }
 });
 
 app.get('/login', function (req, res, next) {
@@ -666,8 +649,8 @@ app.get('/register', function (req, res, next) {
 
 app.get('*', function (req, res) {
   res.status(404).render('404.handlebars', {
-     title: '404',
-     layout: 'bare'
+    title: '404',
+    layout: 'bare'
   });
 });
 
