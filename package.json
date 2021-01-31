@@ -1,6 +1,6 @@
 {
   "name": "shoppingList",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Server for shoppingList",
   "main": "server.js",
   "scripts": {
