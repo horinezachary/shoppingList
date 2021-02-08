@@ -42,7 +42,12 @@ app.use(express.static('public'));
 app.use('/:url', express.static('public'));
 app.use(bodyParser.urlencoded({extended : false}));
 app.use('*', (req,res,next) => {console.log(req.headers); next();});
-app.post('*', (req,res,next) => {req.query = querystring.parse(url.parse(req.headers.referer).query); next();});
+app.post('*', (req,res,next) => {
+  if (typeOf(req.headers.referrer) == 'string') {
+    req.query = querystring.parse(url.parse(req.headers.referer).query);
+  }
+  next();
+}
 app.use(bodyParser.json());
 app.use(session({
   cookieName: 'session',
