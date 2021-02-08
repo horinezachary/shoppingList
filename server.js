@@ -47,7 +47,7 @@ app.post('*', (req,res,next) => {
     req.query = querystring.parse(url.parse(req.headers.referer).query);
   }
   next();
-}
+});
 app.use(bodyParser.json());
 app.use(session({
   cookieName: 'session',
