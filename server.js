@@ -43,7 +43,7 @@ app.use('/:url', express.static('public'));
 app.use(bodyParser.urlencoded({extended : false}));
 app.use('*', (req,res,next) => {console.log(req.headers); next();});
 app.post('*', (req,res,next) => {
-  if (typeOf(req.headers.referrer) == 'string') {
+  if (typeof(req.headers.referrer) == "string") {
     req.query = querystring.parse(url.parse(req.headers.referer).query);
   }
   next();
