@@ -51,7 +51,7 @@ function deleteItems(list,listId) {
          arr.push(children[i].id);
       }
    }
-   fetch('/l/delItem/'+list, {
+   fetch('/l/'+list+'/delItem', {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json'
