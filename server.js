@@ -23,7 +23,6 @@ var express = require('express');
 var exphbs = require('express-handlebars');
 var bodyParser = require('body-parser');
 var session = require('client-sessions');
-var md5 = require('md5');
 var crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
