@@ -342,7 +342,7 @@ app.get('/l/:list', async function (req, res, next) {
       if (singleListData[0].owner == user) {
         owner = true;
       }
-      let [listItemData] = await con.asyncQuery(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item NATURAL JOIN Item WHERE ShoppingList_Item.list_id = ${mysql.escape(req.params.list)}`);
+      let [listItemData] = await con.asyncQuery(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item JOIN Item WHERE ShoppingList_Item.list_id = ${mysql.escape(req.params.list)} AND Item.item_id = ShoppingList_Item.item_id`);
       var buttonDisabled = true;
       for (i = 0; i < listItemData.length; i++) {
         if (listItemData[i].checked == 1) {
