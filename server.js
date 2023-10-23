@@ -35,7 +35,13 @@ var fs = require('fs');
 
 var app = express();
 var port = process.env.PORT || config.server.port;
-app.engine('handlebars', exphbs({ defaultLayout: 'main' }));
+
+var handlebars = exphbs.create({
+    defaultLayout: 'main',
+    extname: '.handlebars'
+});
+
+app.engine('.handlebars', handlebars.engine);
 app.set('view engine', 'handlebars');
 
 app.use(express.static('public'));
@@ -450,7 +456,7 @@ app.post('/l/:list/share/', async function (req, res) {
       template: 'share',
       context: {
         uname: user,
-        share_user: share_user[0],
+        share_user: share_user,
         perms: perms,
         list_name: list,
         link: config.url+'/share/'+share_key,
