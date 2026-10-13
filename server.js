@@ -3,6 +3,25 @@ var env = process.env.NODE_ENV || 'development';
 var config = require('./config')[env];
 var con = require('./sqlConfig');
 
+// Secrets come from config.js (which is gitignored) or from environment
+// variables. They must never be committed to the repository.
+function requireSetting(name, value) {
+  if (!value) {
+    console.error('Missing required setting "' + name + '". Set it in config.js (see exampleConfig.js) or as an environment variable.');
+    process.exit(1);
+  }
+  return value;
+}
+const SESSION_CFG = config.session || {};
+const MAIL = config.mail || {};
+const SESSION_SECRET = requireSetting('session.secret (SESSION_SECRET)', process.env.SESSION_SECRET || SESSION_CFG.secret);
+const MAIL_USER = requireSetting('mail.user (SMTP_USER)', process.env.SMTP_USER || MAIL.user);
+const MAIL_PASS = requireSetting('mail.pass (SMTP_PASS)', process.env.SMTP_PASS || MAIL.pass);
+// Only send the session cookie over HTTPS when the node process itself sees
+// TLS (or trusts a proxy that says so). Off by default so existing deployments
+// behind a TLS-terminating proxy keep working until it is switched on.
+const COOKIE_SECURE = (process.env.COOKIE_SECURE !== undefined) ? (process.env.COOKIE_SECURE === 'true') : !!SESSION_CFG.cookieSecure;
+
 con.start(config.database);
 
 const USER = 1;
@@ -57,18 +76,22 @@ app.post('*', (req,res,next) => {
 app.use(bodyParser.json());
 app.use(session({
   cookieName: 'session',
-  secret: 'dQ46q4AlvniGACyALReI',
+  secret: SESSION_SECRET,
   duration: 365 * 24 * 60 * 60 * 1000, //1 day
   activeDuration: 365 * 24 * 60 * 60 * 1000,
+  cookie: {
+    httpOnly: true,
+    secure: COOKIE_SECURE
+  }
 }));
 
 let transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true, // true for 465, false for other ports
+  host: MAIL.host || "smtp.gmail.com",
+  port: MAIL.port || 465,
+  secure: (MAIL.secure !== undefined) ? MAIL.secure : true, // true for 465, false for other ports
   auth: {
-    user: 'lorislist.noreply',
-    pass: 'rbovqgckojvrcvwi'
+    user: MAIL_USER,
+    pass: MAIL_PASS
   }
 });
 
