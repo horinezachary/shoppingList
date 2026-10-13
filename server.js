@@ -44,7 +44,9 @@ var bodyParser = require('body-parser');
 var session = require('client-sessions');
 var md5 = require('md5');
 var crypto = require('crypto');
-const bcrypt = require('bcrypt');
+// bcryptjs is a pure JavaScript bcrypt: same hash format and same calls as the
+// native "bcrypt" package, but nothing to compile or download on the server.
+const bcrypt = require('bcryptjs');
 const saltRounds = 10;
 
 var nodemailer = require('nodemailer');
