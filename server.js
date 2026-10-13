@@ -35,9 +35,9 @@ const SHARE_VIEW = "VIEW";
 const QUERY_ONLY = false;
 const EXECUTE = true;
 
+const LOGIN_ERROR = 'Invalid username or password.';
+
 var path = require('path');
-const url = require('url');
-const querystring = require('querystring');
 var express = require('express');
 var exphbs = require('express-handlebars');
 var bodyParser = require('body-parser');
@@ -63,16 +63,113 @@ var handlebars = exphbs.create({
 app.engine('.handlebars', handlebars.engine);
 app.set('view engine', 'handlebars');
 
+// ---------------------------------------------------------------------------
+// Input helpers.
+//
+// Everything that comes from a request (body, params, query) is untrusted.
+// All SQL below uses "?" placeholders, and values are first coerced to a plain
+// string or integer. The coercion matters: the mysql library expands an
+// object passed to "?" into "`key` = value" pairs, and JSON request bodies can
+// contain objects.
+// ---------------------------------------------------------------------------
+function asString(v) {
+  if (typeof v === 'string') { return v; }
+  if (typeof v === 'number') { return String(v); }
+  return '';
+}
+
+// Row ids: digits only, otherwise null.
+function toId(v) {
+  var s = asString(v);
+  return /^\d{1,15}$/.test(s) ? parseInt(s, 10) : null;
+}
+
+// Optional item quantity: a positive whole number, otherwise null.
+function parseCount(v) {
+  var s = asString(v).trim();
+  if (!/^\d{1,9}$/.test(s)) { return null; }
+  var n = parseInt(s, 10);
+  return n > 0 ? n : null;
+}
+
+// List colours end up inside a style attribute, so only accept hex digits.
+function isHexColor(v) {
+  return /^[0-9a-fA-F]{3,8}$/.test(v);
+}
+
+// Only ever redirect to a path on this site: one leading slash, no "//" or
+// "/\" (which browsers treat as a different host), no control characters.
+function safeRedirect(target, fallback) {
+  if (typeof target === 'string' && /^\/(?![\/\\])/.test(target) && !/[\u0000-\u001f\u007f]/.test(target)) {
+    return target;
+  }
+  return fallback;
+}
+
+function loginErrorUrl(req) {
+  var target = '/login/?error=' + encodeURIComponent(LOGIN_ERROR);
+  var redirect = safeRedirect(req.query.redirect, null);
+  if (redirect) {
+    target += '&redirect=' + encodeURIComponent(redirect);
+  }
+  return target;
+}
+
+// Express 4 does not catch rejected promises from async handlers. Without this
+// a single failed database call would be an unhandled rejection that takes the
+// whole process down.
+function route(handler) {
+  return function (req, res, next) {
+    Promise.resolve(handler(req, res, next)).catch(next);
+  };
+}
+
+// Existing accounts were created by hashing the password *after* it had been
+// passed through mysql.escape() (i.e. the hash covers the quoted string).
+// That is not needed now that queries are parameterised, but changing it would
+// lock every existing user out, so hashing and comparison keep using it until
+// passwords are migrated.
+function passwordInput(password) {
+  return mysql.escape(password);
+}
+
+// ---------------------------------------------------------------------------
+// CSRF: refuse state-changing requests that a browser says came from another
+// site. Origin is checked first, then Referer. Requests that carry neither
+// (non-browser clients) are let through, as they cannot ride on a victim's
+// cookies.
+// ---------------------------------------------------------------------------
+var ALLOWED_ORIGIN = null;
+try {
+  ALLOWED_ORIGIN = new URL(config.url).origin;
+} catch (e) {
+  console.log('config.url is not an absolute URL; only POSTs from the same host will be accepted.');
+}
+
+function originCheck(req, res, next) {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+    return next();
+  }
+  var source = req.headers.origin || req.headers.referer;
+  if (!source) {
+    return next();
+  }
+  var parsed;
+  try {
+    parsed = new URL(source);
+  } catch (e) {
+    return res.status(403).send('Forbidden');
+  }
+  if (parsed.origin === ALLOWED_ORIGIN || parsed.host === req.headers.host) {
+    return next();
+  }
+  return res.status(403).send('Forbidden');
+}
+
 app.use(express.static('public'));
 app.use('/:url', express.static('public'));
+app.use(originCheck);
 app.use(bodyParser.urlencoded({extended : false}));
-app.use('*', (req,res,next) => {console.log(req.headers); next();});
-app.post('*', (req,res,next) => {
-  if (typeof(req.headers.referrer) == "string") {
-    req.query = querystring.parse(url.parse(req.headers.referer).query);
-  }
-  next();
-});
 app.use(bodyParser.json());
 app.use(session({
   cookieName: 'session',
@@ -108,46 +205,50 @@ let ViewOption = (transport, hbs) => {
   }));
 }
 
+function renderNotFound(res) {
+  res.status(404).render('404.handlebars', {
+    title: '404',
+    layout: 'bare'
+  });
+}
+
 async function authorize(session, res, authLevel, page, execute) {
   if (!session.uname) {
-    res.redirect('/login?redirect='+page.redirect);
-    return false;
-  } else if (authLevel == USER) {
-    return true;
-  } else if (authLevel == LIST_VIEW || authLevel == LIST_EDIT || authLevel == LIST_OWNER){
-    let auth = "";
-    let list_id = page.list;
-    console.log(list_id);
-    let [list] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE list_id = '${list_id}';`);
-    console.log(list);
-    if (list[0].owner == session.uname) {
-      owner = true;
-    } else {
-      let [shares] = await con.asyncQuery(`SELECT * FROM Shared_list WHERE list_id = '${list_id}' AND share_user = '${session.uname}';`);
-      if (shares[0]) {
-        auth = shares[0].share_perms;
-      }
-    }
-    if (authLevel == LIST_OWNER && (list[0].owner == session.uname)) {
-      return true;
-    } else if (authLevel == LIST_EDIT && (auth == SHARE_EDIT || list[0].owner == session.uname)) {
-      return true;
-    } else if (authLevel == LIST_VIEW && (auth == SHARE_VIEW || auth == SHARE_EDIT || list[0].owner == session.uname)) {
-      return true;
-    } else if (execute){
-      res.status(404).render('404.handlebars', {
-        title: '404',
-        layout: 'bare'
-      });
-      return false;
-    }
-  } else if (execute){
-    res.status(404).render('404.handlebars', {
-      title: '404',
-      layout: 'bare'
-    });
+    res.redirect('/login?redirect=' + encodeURIComponent(page.redirect));
     return false;
   }
+  if (authLevel == USER) {
+    return true;
+  }
+  if (authLevel == LIST_VIEW || authLevel == LIST_EDIT || authLevel == LIST_OWNER) {
+    let list_id = toId(page.list);
+    let list = [];
+    if (list_id !== null) {
+      [list] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE list_id = ?', [list_id]);
+    }
+    if (list.length > 0) {
+      let isOwner = (list[0].owner == session.uname);
+      let auth = "";
+      if (!isOwner) {
+        let [shares] = await con.asyncQuery('SELECT * FROM Shared_list WHERE list_id = ? AND share_user = ?', [list_id, session.uname]);
+        if (shares[0]) {
+          auth = shares[0].share_perms;
+        }
+      }
+      if (authLevel == LIST_OWNER && isOwner) {
+        return true;
+      } else if (authLevel == LIST_EDIT && (auth == SHARE_EDIT || isOwner)) {
+        return true;
+      } else if (authLevel == LIST_VIEW && (auth == SHARE_VIEW || auth == SHARE_EDIT || isOwner)) {
+        return true;
+      }
+    }
+  }
+  // not allowed (or the list does not exist)
+  if (execute) {
+    renderNotFound(res);
+  }
+  return false;
 }
 
 app.get('/', function (req, res, next) {
@@ -163,14 +264,12 @@ app.get('/', function (req, res, next) {
 });
 
 
-app.get('/home', async function (req, res, next) {
-  if (await authorize(req.session,res,USER,{redirect:'/home',list:req.params.list},EXECUTE)){ //has view
-    const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
+app.get('/home', route(async function (req, res, next) {
+  if (await authorize(req.session,res,USER,{redirect:'/home'},EXECUTE)){ //logged in
+    const [colors] = await con.asyncQuery('SELECT * FROM colors');
     var user = req.session.uname;
-    console.log(user);
-    let [sharedlists] = await con.asyncQuery(`SELECT * FROM Shared_list NATURAL JOIN ShoppingList WHERE share_user = '${user.toString()}';`);
-    console.log(sharedlists);
-    let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}';`);
+    let [sharedlists] = await con.asyncQuery('SELECT * FROM Shared_list NATURAL JOIN ShoppingList WHERE share_user = ?', [user]);
+    let [listData] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE ShoppingList.owner = ?', [user]);
     res.status(200).render('home', {
       title: 'Home',
       uname: req.session.uname,
@@ -181,27 +280,22 @@ app.get('/home', async function (req, res, next) {
       colors: colors
     });
   }
-});
+}));
 
-function updatePassword(uname,passIn) {
-  bcrypt.hash(passIn, saltRounds, async function(err, hash) {
-    //store hash
-    con.asyncQuery(`UPDATE User SET password = '${hash}', salt='', hash='BCR' WHERE uname = ${uname.toString()};`);
-    console.log(hash);
-  });
+async function updatePassword(uname, passIn) {
+  const hash = await bcrypt.hash(passwordInput(passIn), saltRounds);
+  await con.asyncQuery("UPDATE User SET password = ?, salt = '', hash = 'BCR' WHERE uname = ?", [hash, uname]);
 }
 
-app.post('/login', async function(req, res) {
-  var uname = mysql.escape(req.body.username);
-  let [user] = await con.asyncQuery(`SELECT * FROM User WHERE uname = ${uname.toString()};`);
+app.post('/login', route(async function(req, res) {
+  var uname = asString(req.body.username);
+  let [user] = await con.asyncQuery('SELECT * FROM User WHERE uname = ?', [uname]);
   if (!user || user.length == 0) {
-    res.redirect("/login/?error="+'Invalid username or password.'+"&redirect="+req.query.redirect);
+    res.redirect(loginErrorUrl(req));
   } else {
-    var passIn = mysql.escape(req.body.password);
-    var salt = user[0].salt;
-    var passwordHash;
+    var passIn = passwordInput(asString(req.body.password));
     bcrypt.compare(passIn, user[0].password, function(err, result) {
-      if (result == true) {
+      if (result === true) {
         //set values
         req.session.uname = user[0].uname;
         req.session.fname = user[0].fname;
@@ -209,99 +303,77 @@ app.post('/login', async function(req, res) {
         req.session.email = user[0].email;
         req.session.showAlert = user[0].showAlert;
         //go home
-        console.log(req.query);
-        if (req.query.redirect) {
-          res.redirect(req.query.redirect);
-        } else{
-          res.redirect('/home');
-        }
-      }
-      if (result == false) {
-        res.redirect("/login/?error="+'Invalid username or password.'+"&redirect="+req.query.redirect);
+        res.redirect(safeRedirect(req.query.redirect, '/home'));
+      } else {
+        res.redirect(loginErrorUrl(req));
       }
     });
   }
-});
+}));
 
 app.get('/logout', function (req, res, next) {
   req.session.reset();
   res.redirect('/');
 });
 
-app.post('/register', async function(req, res) {
-  var fname = mysql.escape(req.body.fname);
-  var lname = mysql.escape(req.body.lname);
-  var uname = mysql.escape(req.body.username);
-  var email = mysql.escape(req.body.email);
-  var pass1 = mysql.escape(req.body.password);
-  var pass2 = mysql.escape(req.body.password2);
-  let [emailIn] = await con.asyncQuery(`SELECT uname FROM User WHERE email = ${email.toString()};`);
-  let [users] = await con.asyncQuery(`SELECT uname FROM User WHERE uname = ${uname.toString()};`);
-  if (emailIn.length > 0) {
+app.post('/register', route(async function(req, res) {
+  var fname = asString(req.body.fname);
+  var lname = asString(req.body.lname);
+  var uname = asString(req.body.username);
+  var email = asString(req.body.email);
+  var pass1 = asString(req.body.password);
+  var pass2 = asString(req.body.password2);
+  let [emailIn] = await con.asyncQuery('SELECT uname FROM User WHERE email = ?', [email]);
+  let [users] = await con.asyncQuery('SELECT uname FROM User WHERE uname = ?', [uname]);
+  var error = null;
+  if (!uname || !email || !pass1) {
+    error = 'Username, email and password are required.';
+  } else if (emailIn.length > 0) {
+    error = 'Email is already in use!';
+  } else if (users.length > 0) {
+    error = 'Username is already in use!';
+  } else if (pass1 != pass2) {
+    error = 'Passwords must match.';
+  }
+  if (error) {
     res.render('register.handlebars', {
       title: 'Register',
       layout: 'bare',
-      error: 'Email is already in use!'
+      error: error
     });
-    return true;
+    return;
   }
-  else if (users.length > 0) {
-    res.render('register.handlebars', {
-      title: 'Register',
-      layout: 'bare',
-      error: 'Username is already in use!'
-    });
-    return true;
-  }
-  else if (pass1 != pass2) {
-    res.render('register.handlebars', {
-      title: 'Register',
-      layout: 'bare',
-      error: 'Passwords must match.'
-    });
-  } else {
-    bcrypt.hash(pass1, saltRounds, async function(err, hash) {
-      await con.asyncQuery(`INSERT INTO User (uname,fname,lname,email,password)
-            VALUES (${uname.toString()},${fname.toString()},${lname.toString()},${email.toString()},'${hash.toString()}');`);
-    });
-    req.session.uname = req.body.username;
-    req.session.fname = req.body.fname;
-    req.session.lname = req.body.lname;
-    req.session.email = req.body.email;
-    if (req.query.redirect) {
-      res.redirect(req.query.redirect);
-    } else{
-      res.redirect('/');
-    }
-  }
-});
+  const hash = await bcrypt.hash(passwordInput(pass1), saltRounds);
+  await con.asyncQuery('INSERT INTO User (uname,fname,lname,email,password) VALUES (?,?,?,?,?)', [uname, fname, lname, email, hash]);
+  req.session.uname = uname;
+  req.session.fname = fname;
+  req.session.lname = lname;
+  req.session.email = email;
+  res.redirect(safeRedirect(req.query.redirect, '/'));
+}));
 
-app.get('/passwordReset/:token', async function(req, res, next) {
-  var token = mysql.escape(req.params.token);
-  console.log(req.params.token);
-  let [tokens] = await con.asyncQuery(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`);
+app.get('/passwordReset/:token', route(async function(req, res, next) {
+  var token = asString(req.params.token);
+  let [tokens] = await con.asyncQuery('SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ?', [token]);
   if (tokens.length > 0) {
-    console.log(tokens.length);
     res.render('passwordReset.handlebars',{
       title: 'Password Reset',
       layout: 'bare',
-      token: req.params.token
+      token: token
     });
   } else {
     res.status(404).render('404.handlebars');
   }
-});
+}));
 
-app.post('/passwordReset', async function(req, res) {
-  var email = mysql.escape(req.body.email);
-  let [uEmail] = await con.asyncQuery(`SELECT * FROM User WHERE email = ${email}`);
+app.post('/passwordReset', route(async function(req, res) {
+  var email = asString(req.body.email);
+  let [uEmail] = await con.asyncQuery('SELECT * FROM User WHERE email = ?', [email]);
   if (uEmail.length > 0) {
-    console.log(uEmail[0].uname);
     //generate token
     var token = crypto.randomBytes(16).toString('hex');
-    console.log(token);
-    con.asyncQuery(`DELETE FROM PasswordResetToken WHERE uname = '${uEmail[0].uname.toString()}';`);
-    con.asyncQuery(`INSERT INTO PasswordResetToken (uname,token) VALUES ('${uEmail[0].uname.toString()}', ${mysql.escape(token.toString())});`);
+    await con.asyncQuery('DELETE FROM PasswordResetToken WHERE uname = ?', [uEmail[0].uname]);
+    await con.asyncQuery('INSERT INTO PasswordResetToken (uname,token) VALUES (?, ?)', [uEmail[0].uname, token]);
     //send email
     ViewOption(transporter,nodemailerhbs);
     let HelperOptions = {
@@ -316,54 +388,49 @@ app.post('/passwordReset', async function(req, res) {
         link: config.url+'/passwordReset/'+token,
       }
     };
-    transporter.sendMail(HelperOptions, (error,info) => {
-      if(error) {
+    transporter.sendMail(HelperOptions, (error) => {
+      if (error) {
         console.log(error);
-        res.json(error);
       }
-      console.log("email is send");
-      console.log(info);
-      res.json(info)
     });
-    console.log("email sent to"+email);
-  } else {console.log("no match!");}
+  }
+  // Respond the same way whether or not the email has an account, so this form
+  // cannot be used to find out which addresses are registered.
   res.redirect('/login');
-});
+}));
 
-app.post('/updatePassword/:token', async function(req, res) {
-  var token = mysql.escape(req.params.token);
-  var password = mysql.escape(req.body.password);
-  var password2 = mysql.escape(req.body.password2);
-  if (password != password2) {
-    res.redirect('/passwordReset/'+token);
+app.post('/updatePassword/:token', route(async function(req, res) {
+  var token = asString(req.params.token);
+  var password = asString(req.body.password);
+  var password2 = asString(req.body.password2);
+  if (!password || password != password2) {
+    res.redirect('/passwordReset/'+encodeURIComponent(token));
   } else {
-    let [reset] = await con.asyncQuery(`SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ${token.toString()}`);
-    console.log(reset.length);
-    updatePassword(reset[0].uname,password)
-    con.asyncQuery(`DELETE FROM PasswordResetToken WHERE uname = '${reset[0].uname.toString()}';`);
-    req.session.uname = req.body.username;
-    req.session.fname = req.body.fname;
-    req.session.lname = req.body.lname;
-    req.session.email = req.body.email;
+    let [reset] = await con.asyncQuery('SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ?', [token]);
+    if (reset.length == 0) {
+      res.status(404).render('404.handlebars');
+      return;
+    }
+    await updatePassword(reset[0].uname, password);
+    await con.asyncQuery('DELETE FROM PasswordResetToken WHERE uname = ?', [reset[0].uname]);
+    req.session.reset();
     res.redirect('/');
   }
-});
+}));
 
-app.get('/l/:list', async function (req, res, next) {
+app.get('/l/:list', route(async function (req, res, next) {
   if (await authorize(req.session,res,LIST_VIEW,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has view
-    let edit = await authorize(req.session,res,LIST_EDIT,{redirect:'/l/'+req.params.list,list:req.params.list},QUERY_ONLY); //has view
-    const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
+    let edit = await authorize(req.session,res,LIST_EDIT,{redirect:'/l/'+req.params.list,list:req.params.list},QUERY_ONLY); //has edit
+    const [colors] = await con.asyncQuery('SELECT * FROM colors');
     var user = req.session.uname;
-    var list = req.params.list;
+    var list = toId(req.params.list);
     var showAlert = req.session.showAlert;
     var fname = req.session.fname;
     var lname = req.session.lname;
-    console.log(showAlert);
     if (showAlert == 0) {
       showAlert = false;
     }
-    list = mysql.escape(list);
-    let [singleListData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.list_id = ${list}`);
+    let [singleListData] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE ShoppingList.list_id = ?', [list]);
     if (singleListData.length == 0){
       next(); //render 404
     } else {
@@ -371,17 +438,16 @@ app.get('/l/:list', async function (req, res, next) {
       if (singleListData[0].owner == user) {
         owner = true;
       }
-      let [listItemData] = await con.asyncQuery(`SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item JOIN Item WHERE ShoppingList_Item.list_id = ${mysql.escape(req.params.list)} AND Item.item_id = ShoppingList_Item.item_id`);
+      let [listItemData] = await con.asyncQuery('SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item JOIN Item WHERE ShoppingList_Item.list_id = ? AND Item.item_id = ShoppingList_Item.item_id', [list]);
       var buttonDisabled = true;
-      for (i = 0; i < listItemData.length; i++) {
+      for (let i = 0; i < listItemData.length; i++) {
         if (listItemData[i].checked == 1) {
           buttonDisabled = false;
           break;
         }
       }
-      let [autofillData] = await con.asyncQuery(`SELECT * FROM Item WHERE Item.owner = '${user.toString()}';`);
-      let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = '${user.toString()}';`);
-      console.log("Header Lists: " + listData);
+      let [autofillData] = await con.asyncQuery('SELECT * FROM Item WHERE Item.owner = ?', [user]);
+      let [listData] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE ShoppingList.owner = ?', [user]);
       res.status(200).render('shoppingList', {
         title: singleListData[0].list_name,
         fname: fname,
@@ -398,78 +464,85 @@ app.get('/l/:list', async function (req, res, next) {
       });
     }
   }
-});
+}));
 
-app.post('/l/:list/showAlert', async function (req, res) {
-  if (await authorize(req.session,res,USER,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has view
+app.post('/l/:list/showAlert', route(async function (req, res) {
+  if (await authorize(req.session,res,USER,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //logged in
     var user = req.session.uname;
     var dontshow = req.body.dontshow;
-    var list = req.params.list;
-    console.log(dontshow);
+    var list = toId(req.params.list);
     if (dontshow == 'Show') {
       req.session.showAlert = 0;
-      con.asyncQuery(`UPDATE User SET showAlert = FALSE WHERE uname = '${user.toString()}';`);
+      await con.asyncQuery('UPDATE User SET showAlert = FALSE WHERE uname = ?', [user]);
     }
-    res.redirect('/l/'+list);
+    res.redirect(list === null ? '/home' : '/l/'+list);
   }
-});
+}));
 
-app.post('/l/:list/addItem', async function (req, res) {
+app.post('/l/:list/addItem', route(async function (req, res) {
   if (await authorize(req.session,res,LIST_EDIT,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has edit
     var user = req.session.uname;
-    var list = req.params.list;
-    var icount = req.body.icount;
-    console.log("icount: \'"+icount+"\'");
-    if (!icount) {
-      icount = 'NULL';
+    var list = toId(req.params.list);
+    var icount = parseCount(req.body.icount);
+    var item = asString(req.body.itemName);
+    if (item.trim() !== '') {
+      await con.asyncQuery('CALL addShoppingItem(?,?,?,?)', [user, list, icount, item]);
     }
-    var item = req.body.itemName;
-    console.log(user+", "+list+", "+icount+", "+item);
-    con.asyncQuery(`CALL addShoppingItem('${user.toString()}',${list},${icount},'${item.toString()}');`);
     res.redirect('/l/'+list);
   }
-});
+}));
 
-app.post('/l/:list/delItem', async function (req, res) {
+app.post('/l/:list/delItem', route(async function (req, res) {
   if (await authorize(req.session,res,LIST_EDIT,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has edit
-    var list = req.params.list;
-    var items = req.body.items;
-    for (i = 0; i < items.length; i++) {
-      con.asyncQuery(`CALL deleteShoppingItem(${items[i]}, ${list});`);
+    var list = toId(req.params.list);
+    var items = Array.isArray(req.body.items) ? req.body.items : [];
+    for (let i = 0; i < items.length; i++) {
+      var item = toId(items[i]);
+      if (item !== null) {
+        await con.asyncQuery('CALL deleteShoppingItem(?, ?)', [item, list]);
+      }
     }
     res.redirect('/l/'+list);
    }
-});
+}));
 
 
-app.post('/l/:list/crossItem', async function (req, res) {
+app.post('/l/:list/crossItem', route(async function (req, res) {
   if (await authorize(req.session,res,LIST_EDIT,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has edit
-    var list = req.params.list;
-    var items = req.body.items;
-    var check = req.body.check;
-    console.log(check);
-    con.asyncQuery(`CALL setChecked(${items},${check});`);
+    var list = toId(req.params.list);
+    var item = toId(req.body.items);
+    var check = Number(req.body.check) ? 1 : 0;
+    // Having edit rights on this list must not allow changing an item that
+    // belongs to someone else's list, so make sure the item is on this list.
+    let [listItems] = await con.asyncQuery('SELECT * FROM ShoppingList NATURAL JOIN ShoppingList_Item JOIN Item WHERE ShoppingList_Item.list_id = ? AND Item.item_id = ShoppingList_Item.item_id', [list]);
+    if (item === null || !listItems.some(function (row) { return row.sItem_id == item; })) {
+      res.sendStatus(404);
+      return;
+    }
+    await con.asyncQuery('CALL setChecked(?,?)', [item, check]);
     res.redirect('/l/'+list);
   }
-});
+}));
 
-app.post('/l/:list/share/', async function (req, res) {
+app.post('/l/:list/share/', route(async function (req, res) {
   if (await authorize(req.session,res,LIST_OWNER,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has owner
     var user = req.session.uname;
-    var list = req.params.list;
-    var email = req.body.email.toLowerCase();
-    var perms = req.body.perms;
-    console.log(user+", "+list+", "+email+", "+perms);
+    var list = toId(req.params.list);
+    var email = asString(req.body.email).toLowerCase();
+    var perms = asString(req.body.perms);
+    if (!email || (perms != SHARE_EDIT && perms != SHARE_VIEW)) {
+      res.status(400).send('Invalid share request.');
+      return;
+    }
 
     //generate key
     var share_key = crypto.randomBytes(16).toString('hex');
     //add Keyed Share
-
-    con.asyncQuery(`INSERT INTO share_pending (share_key,list_id,list_owner,share_email,share_perms) VALUES('${share_key}','${list}','${user}','${email}','${perms}')
-                ON DUPLICATE KEY UPDATE share_key='${share_key}', list_id='${list}', list_owner='${user}', share_email='${email}', share_perms='${perms}'`);
-    let [share_user] = await con.asyncQuery(`SELECT DISTINCT * FROM User WHERE email = '${email}'`);
+    await con.asyncQuery(`INSERT INTO share_pending (share_key,list_id,list_owner,share_email,share_perms) VALUES(?,?,?,?,?)
+                ON DUPLICATE KEY UPDATE share_key = ?, list_id = ?, list_owner = ?, share_email = ?, share_perms = ?`,
+                [share_key, list, user, email, perms, share_key, list, user, email, perms]);
+    let [share_user] = await con.asyncQuery('SELECT DISTINCT * FROM User WHERE email = ?', [email]);
     share_user = share_user[0];
-    console.log(share_user);
     //send email
     ViewOption(transporter,nodemailerhbs);
     let HelperOptions = {
@@ -479,59 +552,62 @@ app.post('/l/:list/share/', async function (req, res) {
       template: 'share',
       context: {
         uname: user,
-        share_user: share_user,
+        // only what the email template needs, not the whole user row
+        share_user: share_user ? { fname: share_user.fname, lname: share_user.lname } : undefined,
         perms: perms,
         list_name: list,
         link: config.url+'/share/'+share_key,
         register_link: config.url+'/register'
       }
     };
-    transporter.sendMail(HelperOptions, (error,info) => {
-      if(error) {
+    transporter.sendMail(HelperOptions, (error) => {
+      if (error) {
         console.log(error);
-        res.json(error);
       }
-      console.log("email is sent");
-      console.log(info);
-      res.json(info)
     });
-    console.log("email sent to "+email);
     res.redirect('/l/'+list);
    }
-});
+}));
 
-app.get('/share/:share_key', async function (req, res, next) {
-  if (await authorize(req.session,res,USER,{redirect:'/share/'+req.params.share_key},EXECUTE)){ //is logged in
-    let [share_line] = await con.asyncQuery(`SELECT DISTINCT * FROM share_pending WHERE share_key = ${mysql.escape(req.params.share_key)};`);
-    let [share_list] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE list_id = '${share_line[0].list_id}';`);
-    let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${mysql.escape(req.session.uname)}`);
-    console.log(share_line);
-    console.log(share_list);
-    console.log(req.session);
+app.get('/share/:share_key', route(async function (req, res, next) {
+  var share_key = asString(req.params.share_key);
+  if (await authorize(req.session,res,USER,{redirect:'/share/'+share_key},EXECUTE)){ //is logged in
+    let [share_line] = await con.asyncQuery('SELECT DISTINCT * FROM share_pending WHERE share_key = ?', [share_key]);
+    if (share_line.length == 0) {
+      renderNotFound(res);
+      return;
+    }
+    let [share_list] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE list_id = ?', [share_line[0].list_id]);
+    let [listData] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE ShoppingList.owner = ?', [req.session.uname]);
     res.status(200).render('shareConfirmation', {
-      share_key: req.params.share_key,
+      share_key: share_key,
       share_list: share_list[0],
       share_perms: share_line[0].share_perms,
       headerlists: listData
     });
   }
-});
+}));
 
-app.post('/shareConfirmation/:share_key', async function (req, res, next) {
-  if (await authorize(req.session,res,USER,{redirect:'/login?redirect=/shareConfirmation/'+req.params.share_key},EXECUTE)){ //is logged in
-    let [share_line] = await con.asyncQuery(`SELECT DISTINCT * FROM share_pending WHERE share_key = ${mysql.escape(req.params.share_key)};`);
-    let [share_list] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE list_id = '${share_line[0].list_id}';`);
-    let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${mysql.escape(req.session.uname)}`);
+app.post('/shareConfirmation/:share_key', route(async function (req, res, next) {
+  var share_key = asString(req.params.share_key);
+  if (await authorize(req.session,res,USER,{redirect:'/share/'+share_key},EXECUTE)){ //is logged in
+    let [share_line] = await con.asyncQuery('SELECT DISTINCT * FROM share_pending WHERE share_key = ?', [share_key]);
+    if (share_line.length == 0) {
+      renderNotFound(res);
+      return;
+    }
+    let [share_list] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE list_id = ?', [share_line[0].list_id]);
+    let [listData] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE ShoppingList.owner = ?', [req.session.uname]);
     if (req.body.confirm == 'ACCEPT') {
-      await con.asyncQuery(`INSERT INTO Shared_list (list_id,share_user,share_perms) VALUES ('${share_line[0].list_id}','${req.session.uname}','${share_line[0].share_perms}');`);
-      await con.asyncQuery(`DELETE FROM share_pending WHERE share_key = ${mysql.escape(req.params.share_key)};`);
+      await con.asyncQuery('INSERT INTO Shared_list (list_id,share_user,share_perms) VALUES (?,?,?)', [share_line[0].list_id, req.session.uname, share_line[0].share_perms]);
+      await con.asyncQuery('DELETE FROM share_pending WHERE share_key = ?', [share_key]);
       res.status(200).render('shareAccept', {
         share_list: share_list[0],
         share_perms: share_line[0].share_perms,
         headerlists: listData
       });
     } else if (req.body.confirm == 'DENY'){
-      await con.asyncQuery(`DELETE FROM share_pending WHERE share_key = ${mysql.escape(req.params.share_key)};`);
+      await con.asyncQuery('DELETE FROM share_pending WHERE share_key = ?', [share_key]);
       res.status(200).render('shareDeny', {
         share_list: share_list[0],
         share_perms: share_line[0].share_perms,
@@ -541,62 +617,59 @@ app.post('/shareConfirmation/:share_key', async function (req, res, next) {
       next();
     }
   }
-});
+}));
 
-app.post('/l/:list/unsub/', async function (req,res) {
+app.post('/l/:list/unsub/', route(async function (req,res) {
   if (await authorize(req.session,res,LIST_VIEW,{redirect:'/home',list:req.params.list},EXECUTE)){ //has view
-    await con.asyncQuery(`DELETE FROM Shared_list WHERE list_id = '${req.params.list}' AND share_user = '${req.session.uname}';`);
+    await con.asyncQuery('DELETE FROM Shared_list WHERE list_id = ? AND share_user = ?', [toId(req.params.list), req.session.uname]);
+    res.sendStatus(204);
   }
-});
+}));
 
-app.post('/l/:list/delList/',  async function (req, res) {
+app.post('/l/:list/delList/',  route(async function (req, res) {
    if (await authorize(req.session,res,LIST_OWNER,{redirect:'/home',list:req.params.list},EXECUTE)){ //has owner
-      var list = req.body.list;
-      console.log(list);
-      con.asyncQuery(`CALL deleteList(${list});`);
+      // Use the list that was authorised (from the URL), never an id taken from
+      // the request body, so an owner of one list cannot delete another.
+      await con.asyncQuery('CALL deleteList(?)', [toId(req.params.list)]);
       res.redirect('/');
    }
-});
+}));
 
-app.post('/:other?/addList', async function (req, res) {
+app.post('/:other?/addList', route(async function (req, res) {
   let redirect = "/";
   if (req.params.other) {redirect+=req.params.other;}
-  console.log("addList");
   if (await authorize(req.session,res,USER,{redirect:redirect},EXECUTE)){ //is logged in
-    var user = mysql.escape(req.session.uname);
-    var list = mysql.escape(req.body.listName);
-    var color = mysql.escape(req.body.color);
-    console.log(list+", "+color);
-    con.asyncQuery(`CALL addList(${list.toString()},${user.toString()},${color.toString()});`);
-    let [data] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE Owner = ${user.toString()} ORDER BY last_change DESC;`);
-    console.log(data[0].list_id);
-    res.redirect('/l/'+data[0].list_id);
+    var user = req.session.uname;
+    var list = asString(req.body.listName);
+    var color = asString(req.body.color);
+    if (!list.trim() || !isHexColor(color)) {
+      res.status(400).send('Invalid list.');
+      return;
+    }
+    await con.asyncQuery('CALL addList(?,?,?)', [list, user, color]);
+    let [data] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE Owner = ? ORDER BY last_change DESC', [user]);
+    res.redirect(data.length > 0 ? '/l/'+data[0].list_id : '/home');
   }
-});
+}));
 
-app.post('/editInfo', async function (req, res) {
+app.post('/editInfo', route(async function (req, res) {
   if (await authorize(req.session,res,USER,{redirect:'/myAccount'},EXECUTE)){ //is logged in
-    const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
-    var user = mysql.escape(req.session.uname);
-    var fname = mysql.escape(req.body.fname);
-    var lname = mysql.escape(req.body.lname);
-    var email = mysql.escape(req.body.email);
-    var pass1 = mysql.escape(req.body.password);
-    var pass2 = mysql.escape(req.body.password2);
-    console.log("F: "+fname);
-    console.log("L: "+lname);
-    console.log("E: "+email);
-    console.log("U: "+user);
-    if (req.body.fname && req.body.lname){
-      console.log("update name");
-      con.asyncQuery(`UPDATE User SET fname = ${fname}, lname = ${lname} WHERE uname = ${user};`);
-      req.session.fname = req.body.fname;
-      req.session.lname = req.body.lname;
+    const [colors] = await con.asyncQuery('SELECT * FROM colors');
+    var user = req.session.uname;
+    var fname = asString(req.body.fname);
+    var lname = asString(req.body.lname);
+    var email = asString(req.body.email);
+    var pass1 = asString(req.body.password);
+    var pass2 = asString(req.body.password2);
+    if (fname && lname){
+      await con.asyncQuery('UPDATE User SET fname = ?, lname = ? WHERE uname = ?', [fname, lname, user]);
+      req.session.fname = fname;
+      req.session.lname = lname;
       res.redirect('/myAccount');
-    } else if (req.body.email) {
-      let [email] = await con.asyncQuery(`SELECT uname FROM User WHERE email = ${email.toString()};`);
-      if (email.length > 0) {
-        let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`);
+    } else if (email) {
+      let [existing] = await con.asyncQuery('SELECT uname FROM User WHERE email = ?', [email]);
+      if (existing.length > 0) {
+        let [listData] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE ShoppingList.owner = ?', [user]);
         res.render('user.handlebars', {
           title: req.session.uname,
           uname: req.session.uname,
@@ -607,47 +680,48 @@ app.post('/editInfo', async function (req, res) {
           colors: colors,
           emailerror: 'The email you entered is already in use!'
         });
-        return true;
+        return;
       }
       else {
-        con.asyncQuery(`UPDATE User SET email = ${email} WHERE uname = ${user};`);
-        req.session.email = req.body.email;
+        await con.asyncQuery('UPDATE User SET email = ? WHERE uname = ?', [email, user]);
+        req.session.email = email;
         res.redirect('/myAccount');
       }
     } else if (pass1 != '' && pass2 != '') {
       if (pass1 != pass2) {
         var token = crypto.randomBytes(16).toString('hex');
-        console.log(token);
-        con.asyncQuery(`DELETE FROM PasswordResetToken WHERE uname = ${user};`);
-        con.asyncQuery(`INSERT INTO PasswordResetToken (uname,token) VALUES (${user}, ${mysql.escape(token.toString())});`);
+        await con.asyncQuery('DELETE FROM PasswordResetToken WHERE uname = ?', [user]);
+        await con.asyncQuery('INSERT INTO PasswordResetToken (uname,token) VALUES (?, ?)', [user, token]);
         res.redirect('/passwordReset/'+token);
       } else {
-        //console.log(user);
-        updatePassword(user,pass1);
+        await updatePassword(user, pass1);
         res.redirect('/myAccount');
       }
+    } else {
+      res.redirect('/myAccount');
     }
   }
-});
+}));
 
-app.post('/l/:list/editList', async function (req, res) {
+app.post('/l/:list/editList', route(async function (req, res) {
   if (await authorize(req.session,res,LIST_OWNER,{redirect:'/home',list:req.params.list},EXECUTE)){ //has owner
-    var user = mysql.escape(req.session.uname);
-    var listid = mysql.escape(req.params.list);
-    var list = mysql.escape(req.body.listName);
-    var color = mysql.escape(req.body.color);
-    console.log(listid+", "+list+", "+color);
-    con.asyncQuery(`CALL editList(${listid},${list},${color});`);
+    var listid = toId(req.params.list);
+    var list = asString(req.body.listName);
+    var color = asString(req.body.color);
+    if (!list.trim() || !isHexColor(color)) {
+      res.status(400).send('Invalid list.');
+      return;
+    }
+    await con.asyncQuery('CALL editList(?,?,?)', [listid, list, color]);
     res.redirect('/');
   }
-});
+}));
 
-app.get('/:other?/myAccount', async function (req, res, next) {
+app.get('/:other?/myAccount', route(async function (req, res, next) {
   if (await authorize(req.session,res,USER,{redirect:'/myAccount'},EXECUTE)){ //is logged in
-    const [colors] = await con.asyncQuery(`SELECT * FROM colors`);
-    var user = mysql.escape(req.session.uname);
-    console.log(user);
-    let [listData] = await con.asyncQuery(`SELECT * FROM ShoppingList WHERE ShoppingList.owner = ${user.toString()}`);
+    const [colors] = await con.asyncQuery('SELECT * FROM colors');
+    var user = req.session.uname;
+    let [listData] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE ShoppingList.owner = ?', [user]);
     res.status(200).render('user', {
       title: user,
       uname: req.session.uname,
@@ -658,13 +732,14 @@ app.get('/:other?/myAccount', async function (req, res, next) {
       colors: colors
     });
   }
-});
+}));
 
 app.get('/login', function (req, res, next) {
   res.render('login.handlebars', {
       title: 'Login',
       layout: 'bare',
-      error: req.query.error
+      // only ever show our own message, never text supplied in the URL
+      error: (req.query.error === LOGIN_ERROR) ? LOGIN_ERROR : undefined
    });
 });
 
@@ -676,10 +751,15 @@ app.get('/register', function (req, res, next) {
 });
 
 app.get('*', function (req, res) {
-  res.status(404).render('404.handlebars', {
-    title: '404',
-    layout: 'bare'
-  });
+  renderNotFound(res);
+});
+
+app.use(function (err, req, res, next) {
+  console.log(err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(500).send('Something went wrong. Please try again.');
 });
 
 app.listen(port, function () {
