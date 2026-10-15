@@ -174,13 +174,19 @@ app.use(originCheck);
 app.use(bodyParser.urlencoded({extended : false}));
 app.use(bodyParser.json());
 // TLS ends at the Apache reverse proxy, so Node itself only sees plain HTTP.
-// client-sessions refuses to issue a Secure cookie on a connection it does not
-// think is encrypted, so tell it when the proxy says the original request was
-// HTTPS. This is only safe because the server listens on the loopback address
-// (see app.listen below), which means only the proxy can set this header.
+// Two libraries refuse to issue a Secure cookie on a connection they do not
+// think is encrypted, and client-sessions silently drops the cookie when that
+// happens (every login would bounce straight back to the login page):
+//   * the cookies library, which looks at req.protocol. "trust proxy" makes
+//     Express take that from X-Forwarded-Proto, but only when the request
+//     comes from the loopback address, i.e. from Apache on this machine.
+//   * client-sessions itself, which looks at req.connection.proxySecure.
+// This is only safe because the server listens on the loopback address (see
+// app.listen below), so nothing but the proxy can set that header.
 if (COOKIE_SECURE) {
+  app.set('trust proxy', 'loopback');
   app.use(function (req, res, next) {
-    if (req.headers['x-forwarded-proto'] === 'https') {
+    if (req.protocol === 'https') {
       req.connection.proxySecure = true;
     }
     next();
