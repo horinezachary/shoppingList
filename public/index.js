@@ -128,7 +128,7 @@ function unsubList(listId) {
 }
 
 function showField(id) {
-   var fields = ["nameFields","emailField", "password1Field", "password2Field"];
+   var fields = ["nameFields","emailField", "currentPasswordField", "password1Field", "password2Field"];
    for(i = 0; i < fields.length; i++){
       if (!document.getElementById(fields[i]).classList.contains('hidden')) {
          document.getElementById(fields[i]).classList.toggle('hidden');
@@ -141,8 +141,10 @@ function showField(id) {
       }
    }
    if (id == 'passwords') {
+      document.getElementById('currentPasswordField').classList.toggle('hidden');
       document.getElementById('password1Field').classList.toggle('hidden');
       document.getElementById('password2Field').classList.toggle('hidden');
+      document.getElementById('currentPasswordField').children[1].required = true;
       document.getElementById('password1Field').children[1].required = true;
       document.getElementById('password2Field').children[1].required = true;
       //set required

@@ -76,6 +76,21 @@ async function main() {
     }
   });
 
+  await check('lib/passwords with the real bcryptjs: current form, older quoted form, and the upgrade flag', async () => {
+    const mysql = require('mysql');
+    const passwords = require('../lib/passwords').create({
+      bcrypt: bcrypt, escape: (v) => mysql.escape(v), rounds: 4, log: () => {}
+    });
+    const current = await passwords.hash("it's a secret");
+    assert.deepStrictEqual(await passwords.verify("it's a secret", current), { ok: true, upgrade: false });
+    // how accounts made before this version were stored
+    const older = await bcrypt.hash(mysql.escape("it's a secret"), 4);
+    assert.deepStrictEqual(await passwords.verify("it's a secret", older), { ok: true, upgrade: true });
+    assert.deepStrictEqual(await passwords.verify('wrong', older), { ok: false, upgrade: false });
+    assert.deepStrictEqual(await passwords.verify('anything', null), { ok: false, upgrade: false });
+    assert.deepStrictEqual(await passwords.verify('anything', 'not a bcrypt hash'), { ok: false, upgrade: false });
+  });
+
   console.log('email templates');
   const nodemailer = require('nodemailer');
   const nodemailerhbs = require('nodemailer-express-handlebars');
@@ -113,18 +128,20 @@ async function main() {
   await check('share email renders for an existing user', async () => {
     const html = await render('share', {
       uname: 'owner', share_user: { fname: 'Zed', lname: 'Smith' }, perms: 'EDIT',
-      list_name: 'Groceries', link: 'https://example.com/share/abc123',
+      list: 'Groceries', list_name: 'Groceries', link: 'https://example.com/share/abc123',
       register_link: 'https://example.com/register'
     });
     assert(html.includes('Hello Zed!'), 'greeting missing');
+    assert(html.includes('Groceries'), 'list name missing');
     assert(html.includes('https://example.com/share/abc123'), 'share link missing');
   });
   await check('share email renders for someone without an account', async () => {
     const html = await render('share', {
       uname: 'owner', share_user: undefined, perms: 'VIEW',
-      list_name: 'Groceries', link: 'https://example.com/share/abc123',
+      list: 'Groceries', list_name: 'Groceries', link: 'https://example.com/share/abc123',
       register_link: 'https://example.com/register'
     });
+    assert(html.includes('Groceries'), 'list name missing');
     assert(html.includes('https://example.com/register'), 'register link missing');
     assert(html.includes('https://example.com/share/abc123'), 'share link missing');
   });
@@ -211,6 +228,22 @@ async function main() {
       const cookie = setCookie.map((c) => c.split(';')[0]).join('; ');
       const home = await fetch(base + '/home', { headers: Object.assign({ cookie: cookie }, viaProxy) });
       assert.strictEqual(await home.text(), 'home:zed', 'session did not survive a round trip');
+    } finally {
+      server.close();
+    }
+  });
+
+  await check('trust proxy loopback: req.ip is the visitor address from X-Forwarded-For', async () => {
+    const express = require('express');
+    const app = express();
+    app.set('trust proxy', 'loopback');
+    app.get('/ip', (req, res) => { res.send(req.ip); });
+    const server = await new Promise((resolve) => {
+      const s = app.listen(0, '127.0.0.1', () => resolve(s));
+    });
+    try {
+      const r = await fetch('http://127.0.0.1:' + server.address().port + '/ip', { headers: { 'X-Forwarded-For': '203.0.113.9' } });
+      assert.strictEqual(await r.text(), '203.0.113.9');
     } finally {
       server.close();
     }

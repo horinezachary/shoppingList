@@ -48,6 +48,13 @@ var crypto = require('crypto');
 // native "bcrypt" package, but nothing to compile or download on the server.
 const bcrypt = require('bcryptjs');
 const saltRounds = 10;
+const passwords = require('./lib/passwords').create({
+  bcrypt: bcrypt,
+  escape: function (value) { return mysql.escape(value); },
+  rounds: saltRounds,
+  log: console.log
+});
+const createLimiter = require('./lib/rateLimit').createLimiter;
 
 var nodemailer = require('nodemailer');
 var nodemailerhbs = require('nodemailer-express-handlebars');
@@ -108,8 +115,8 @@ function safeRedirect(target, fallback) {
   return fallback;
 }
 
-function loginErrorUrl(req) {
-  var target = '/login/?error=' + encodeURIComponent(LOGIN_ERROR);
+function loginErrorUrl(req, message) {
+  var target = '/login/?error=' + encodeURIComponent(message || LOGIN_ERROR);
   var redirect = safeRedirect(req.query.redirect, null);
   if (redirect) {
     target += '&redirect=' + encodeURIComponent(redirect);
@@ -126,13 +133,44 @@ function route(handler) {
   };
 }
 
-// Existing accounts were created by hashing the password *after* it had been
-// passed through mysql.escape() (i.e. the hash covers the quoted string).
-// That is not needed now that queries are parameterised, but changing it would
-// lock every existing user out, so hashing and comparison keep using it until
-// passwords are migrated.
-function passwordInput(password) {
-  return mysql.escape(password);
+const isEmail = require('./lib/validate').isEmail;
+
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 200;
+// How long a password reset link keeps working. Kept generous because the
+// date_added column may hold only a date; shorten once it is known to be a
+// full timestamp.
+const RESET_TOKEN_HOURS = 24;
+
+function passwordProblem(password) {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return 'Passwords must be at least ' + MIN_PASSWORD_LENGTH + ' characters long.';
+  }
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    return 'That password is too long.';
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Rate limits. req.ip is the real visitor address because Express trusts the
+// X-Forwarded-For header that Apache (on this machine) adds.
+// ---------------------------------------------------------------------------
+const FIFTEEN_MINUTES = 15 * 60 * 1000;
+const ONE_HOUR = 60 * 60 * 1000;
+const LOGIN_LIMITED = 'Too many attempts. Please wait a few minutes and try again.';
+// failed logins / password checks: per address and username, and per address
+const failedPerUser = createLimiter({ max: 5, windowMs: FIFTEEN_MINUTES });
+const failedPerIp = createLimiter({ max: 30, windowMs: FIFTEEN_MINUTES });
+// password reset emails per address, and shared-list emails per account
+const resetRequests = createLimiter({ max: 5, windowMs: ONE_HOUR });
+const shareRequests = createLimiter({ max: 20, windowMs: ONE_HOUR });
+
+function failureKeys(req, uname) {
+  return {
+    user: req.ip + '|' + String(uname).toLowerCase(),
+    ip: req.ip
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +206,16 @@ function originCheck(req, res, next) {
   return res.status(403).send('Forbidden');
 }
 
+app.disable('x-powered-by');
+// Apache runs on this machine and adds X-Forwarded-For / X-Forwarded-Proto.
+// Only believe those headers when the request comes from the loopback address.
+app.set('trust proxy', 'loopback');
+app.use(function (req, res, next) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  next();
+});
 app.use(express.static('public'));
 app.use('/:url', express.static('public'));
 app.use(originCheck);
@@ -177,14 +225,13 @@ app.use(bodyParser.json());
 // Two libraries refuse to issue a Secure cookie on a connection they do not
 // think is encrypted, and client-sessions silently drops the cookie when that
 // happens (every login would bounce straight back to the login page):
-//   * the cookies library, which looks at req.protocol. "trust proxy" makes
-//     Express take that from X-Forwarded-Proto, but only when the request
-//     comes from the loopback address, i.e. from Apache on this machine.
+//   * the cookies library, which looks at req.protocol. "trust proxy" (set
+//     above) makes Express take that from X-Forwarded-Proto, but only when the
+//     request comes from the loopback address, i.e. from Apache on this machine.
 //   * client-sessions itself, which looks at req.connection.proxySecure.
 // This is only safe because the server listens on the loopback address (see
 // app.listen below), so nothing but the proxy can set that header.
 if (COOKIE_SECURE) {
-  app.set('trust proxy', 'loopback');
   app.use(function (req, res, next) {
     if (req.protocol === 'https') {
       req.connection.proxySecure = true;
@@ -304,37 +351,46 @@ app.get('/home', route(async function (req, res, next) {
 }));
 
 async function updatePassword(uname, passIn) {
-  const hash = await bcrypt.hash(passwordInput(passIn), saltRounds);
+  const hash = await passwords.hash(passIn);
   await con.asyncQuery("UPDATE User SET password = ?, salt = '', hash = 'BCR' WHERE uname = ?", [hash, uname]);
 }
 
 app.post('/login', route(async function(req, res) {
   var uname = asString(req.body.username);
+  var password = asString(req.body.password);
+  var keys = failureKeys(req, uname);
+  if (failedPerUser.isLimited(keys.user) || failedPerIp.isLimited(keys.ip)) {
+    console.log('login: too many failed attempts from ' + req.ip);
+    res.redirect(loginErrorUrl(req, LOGIN_LIMITED));
+    return;
+  }
   let [user] = await con.asyncQuery('SELECT * FROM User WHERE uname = ?', [uname]);
-  if (!user || user.length == 0) {
-    res.redirect(loginErrorUrl(req));
+  var found = !!user && user.length > 0;
+  // An unknown username takes as long to answer as a wrong password.
+  var result = await passwords.verify(password, found ? user[0].password : null);
+  if (found && result.ok) {
+    failedPerUser.reset(keys.user);
+    if (result.upgrade) {
+      // password was stored in the older form; store it in the current one
+      try {
+        await updatePassword(user[0].uname, password);
+      } catch (e) {
+        console.log('login: could not update the stored password for "' + user[0].uname + '":', e.message);
+      }
+    }
+    //set values
+    req.session.uname = user[0].uname;
+    req.session.fname = user[0].fname;
+    req.session.lname = user[0].lname;
+    req.session.email = user[0].email;
+    req.session.showAlert = user[0].showAlert;
+    //go home
+    res.redirect(safeRedirect(req.query.redirect, '/home'));
   } else {
-    var passIn = passwordInput(asString(req.body.password));
-    bcrypt.compare(passIn, user[0].password, function(err, result) {
-      if (err) {
-        // a stored value that is not a valid bcrypt hash ends up here
-        console.log('login: could not check the password for "' + uname + '":', err.message);
-      } else if (result !== true) {
-        console.log('login: wrong password for "' + uname + '"');
-      }
-      if (result === true) {
-        //set values
-        req.session.uname = user[0].uname;
-        req.session.fname = user[0].fname;
-        req.session.lname = user[0].lname;
-        req.session.email = user[0].email;
-        req.session.showAlert = user[0].showAlert;
-        //go home
-        res.redirect(safeRedirect(req.query.redirect, '/home'));
-      } else {
-        res.redirect(loginErrorUrl(req));
-      }
-    });
+    failedPerUser.hit(keys.user);
+    failedPerIp.hit(keys.ip);
+    console.log('login: failed for ' + JSON.stringify(uname.slice(0, 64)));
+    res.redirect(loginErrorUrl(req));
   }
 }));
 
@@ -359,8 +415,12 @@ app.post('/register', route(async function(req, res) {
     error = 'Email is already in use!';
   } else if (users.length > 0) {
     error = 'Username is already in use!';
+  } else if (!isEmail(email)) {
+    error = 'Please enter a valid email address.';
   } else if (pass1 != pass2) {
     error = 'Passwords must match.';
+  } else {
+    error = passwordProblem(pass1);
   }
   if (error) {
     res.render('register.handlebars', {
@@ -370,7 +430,7 @@ app.post('/register', route(async function(req, res) {
     });
     return;
   }
-  const hash = await bcrypt.hash(passwordInput(pass1), saltRounds);
+  const hash = await passwords.hash(pass1);
   await con.asyncQuery('INSERT INTO User (uname,fname,lname,email,password) VALUES (?,?,?,?,?)', [uname, fname, lname, email, hash]);
   req.session.uname = uname;
   req.session.fname = fname;
@@ -379,9 +439,17 @@ app.post('/register', route(async function(req, res) {
   res.redirect(safeRedirect(req.query.redirect, '/'));
 }));
 
+// Reset links stop working after RESET_TOKEN_HOURS.
+async function findResetToken(token) {
+  let [rows] = await con.asyncQuery(
+    'SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ? AND PasswordResetToken.date_added > (NOW() - INTERVAL ' + RESET_TOKEN_HOURS + ' HOUR)',
+    [token]);
+  return rows;
+}
+
 app.get('/passwordReset/:token', route(async function(req, res, next) {
   var token = asString(req.params.token);
-  let [tokens] = await con.asyncQuery('SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ?', [token]);
+  let tokens = await findResetToken(token);
   if (tokens.length > 0) {
     res.render('passwordReset.handlebars',{
       title: 'Password Reset',
@@ -395,31 +463,38 @@ app.get('/passwordReset/:token', route(async function(req, res, next) {
 
 app.post('/passwordReset', route(async function(req, res) {
   var email = asString(req.body.email);
-  let [uEmail] = await con.asyncQuery('SELECT * FROM User WHERE email = ?', [email]);
-  if (uEmail.length > 0) {
-    //generate token
-    var token = crypto.randomBytes(16).toString('hex');
-    await con.asyncQuery('DELETE FROM PasswordResetToken WHERE uname = ?', [uEmail[0].uname]);
-    await con.asyncQuery('INSERT INTO PasswordResetToken (uname,token,date_added) VALUES (?, ?, NOW())', [uEmail[0].uname, token]);
-    //send email
-    ViewOption(transporter,nodemailerhbs);
-    let HelperOptions = {
-      from: '"Loris-List" <noreply@horine.dev>',
-      to: uEmail[0].email,
-      subject: 'Password Reset - Lori\'s List',
-      template: 'reset',
-      context: {
-        name: uEmail[0].fname+' '+uEmail[0].lname,
-        email: uEmail[0].email,
-        uname: uEmail[0].uname,
-        link: config.url+'/passwordReset/'+token,
-      }
-    };
-    transporter.sendMail(HelperOptions, (error) => {
-      if (error) {
-        console.log(error);
-      }
-    });
+  // Each address can ask for a handful of reset emails per hour. The answer is
+  // the same either way, so this does not reveal anything.
+  var limited = resetRequests.isLimited(req.ip);
+  resetRequests.hit(req.ip);
+  if (!limited && isEmail(email)) {
+    let [uEmail] = await con.asyncQuery('SELECT * FROM User WHERE email = ?', [email]);
+    if (uEmail.length > 0) {
+      //generate token
+      var token = crypto.randomBytes(16).toString('hex');
+      await con.asyncQuery('DELETE FROM PasswordResetToken WHERE date_added <= (NOW() - INTERVAL ' + RESET_TOKEN_HOURS + ' HOUR)');
+      await con.asyncQuery('DELETE FROM PasswordResetToken WHERE uname = ?', [uEmail[0].uname]);
+      await con.asyncQuery('INSERT INTO PasswordResetToken (uname,token,date_added) VALUES (?, ?, NOW())', [uEmail[0].uname, token]);
+      //send email
+      ViewOption(transporter,nodemailerhbs);
+      let HelperOptions = {
+        from: '"Loris-List" <noreply@horine.dev>',
+        to: uEmail[0].email,
+        subject: 'Password Reset - Lori\'s List',
+        template: 'reset',
+        context: {
+          name: uEmail[0].fname+' '+uEmail[0].lname,
+          email: uEmail[0].email,
+          uname: uEmail[0].uname,
+          link: config.url+'/passwordReset/'+token,
+        }
+      };
+      transporter.sendMail(HelperOptions, (error) => {
+        if (error) {
+          console.log(error);
+        }
+      });
+    }
   }
   // Respond the same way whether or not the email has an account, so this form
   // cannot be used to find out which addresses are registered.
@@ -430,19 +505,30 @@ app.post('/updatePassword/:token', route(async function(req, res) {
   var token = asString(req.params.token);
   var password = asString(req.body.password);
   var password2 = asString(req.body.password2);
-  if (!password || password != password2) {
-    res.redirect('/passwordReset/'+encodeURIComponent(token));
-  } else {
-    let [reset] = await con.asyncQuery('SELECT * FROM PasswordResetToken NATURAL JOIN User WHERE token = ?', [token]);
-    if (reset.length == 0) {
-      res.status(404).render('404.handlebars');
-      return;
-    }
-    await updatePassword(reset[0].uname, password);
-    await con.asyncQuery('DELETE FROM PasswordResetToken WHERE uname = ?', [reset[0].uname]);
-    req.session.reset();
-    res.redirect('/');
+  let reset = await findResetToken(token);
+  if (reset.length == 0) {
+    res.status(404).render('404.handlebars');
+    return;
   }
+  var problem = null;
+  if (password != password2) {
+    problem = 'Passwords must match.';
+  } else {
+    problem = passwordProblem(password);
+  }
+  if (problem) {
+    res.status(400).render('passwordReset.handlebars', {
+      title: 'Password Reset',
+      layout: 'bare',
+      token: token,
+      error: problem
+    });
+    return;
+  }
+  await updatePassword(reset[0].uname, password);
+  await con.asyncQuery('DELETE FROM PasswordResetToken WHERE uname = ?', [reset[0].uname]);
+  req.session.reset();
+  res.redirect('/');
 }));
 
 app.get('/l/:list', route(async function (req, res, next) {
@@ -555,12 +641,24 @@ app.post('/l/:list/share/', route(async function (req, res) {
   if (await authorize(req.session,res,LIST_OWNER,{redirect:'/l/'+req.params.list,list:req.params.list},EXECUTE)){ //has owner
     var user = req.session.uname;
     var list = toId(req.params.list);
-    var email = asString(req.body.email).toLowerCase();
+    var email = asString(req.body.email).trim().toLowerCase();
     var perms = asString(req.body.perms);
-    if (!email || (perms != SHARE_EDIT && perms != SHARE_VIEW)) {
+    if (perms != SHARE_EDIT && perms != SHARE_VIEW) {
       res.status(400).send('Invalid share request.');
       return;
     }
+    if (!isEmail(email)) {
+      res.status(400).send('Please enter a valid email address.');
+      return;
+    }
+    // Each account can send a limited number of share emails per hour.
+    if (shareRequests.isLimited(user)) {
+      res.status(429).send('You have shared a lot of lists recently. Please try again in a while.');
+      return;
+    }
+    shareRequests.hit(user);
+    let [listRows] = await con.asyncQuery('SELECT list_name FROM ShoppingList WHERE list_id = ?', [list]);
+    var listName = listRows.length > 0 ? listRows[0].list_name : '';
 
     //generate key
     var share_key = crypto.randomBytes(16).toString('hex');
@@ -582,7 +680,9 @@ app.post('/l/:list/share/', route(async function (req, res) {
         // only what the email template needs, not the whole user row
         share_user: share_user ? { fname: share_user.fname, lname: share_user.lname } : undefined,
         perms: perms,
-        list_name: list,
+        // the email templates show {{list}}, the list's name
+        list: listName,
+        list_name: listName,
         link: config.url+'/share/'+share_key,
         register_link: config.url+'/register'
       }
@@ -679,13 +779,27 @@ app.post('/:other?/addList', route(async function (req, res) {
   }
 }));
 
+async function renderAccount(req, res, extra) {
+  const [colors] = await con.asyncQuery('SELECT * FROM colors');
+  let [listData] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE ShoppingList.owner = ?', [req.session.uname]);
+  res.render('user.handlebars', Object.assign({
+    title: req.session.uname,
+    uname: req.session.uname,
+    fname: req.session.fname,
+    lname: req.session.lname,
+    email: req.session.email,
+    headerlists: listData,
+    colors: colors
+  }, extra));
+}
+
 app.post('/editInfo', route(async function (req, res) {
   if (await authorize(req.session,res,USER,{redirect:'/myAccount'},EXECUTE)){ //is logged in
-    const [colors] = await con.asyncQuery('SELECT * FROM colors');
     var user = req.session.uname;
     var fname = asString(req.body.fname);
     var lname = asString(req.body.lname);
-    var email = asString(req.body.email);
+    var email = asString(req.body.email).trim();
+    var currentPassword = asString(req.body.current_password);
     var pass1 = asString(req.body.password);
     var pass2 = asString(req.body.password2);
     if (fname && lname){
@@ -694,19 +808,14 @@ app.post('/editInfo', route(async function (req, res) {
       req.session.lname = lname;
       res.redirect('/myAccount');
     } else if (email) {
-      let [existing] = await con.asyncQuery('SELECT uname FROM User WHERE email = ?', [email]);
+      if (!isEmail(email)) {
+        res.status(400);
+        await renderAccount(req, res, { emailerror: 'Please enter a valid email address.' });
+        return;
+      }
+      let [existing] = await con.asyncQuery('SELECT uname FROM User WHERE email = ? AND uname <> ?', [email, user]);
       if (existing.length > 0) {
-        let [listData] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE ShoppingList.owner = ?', [user]);
-        res.render('user.handlebars', {
-          title: req.session.uname,
-          uname: req.session.uname,
-          fname: req.session.fname,
-          lname: req.session.lname,
-          email: req.session.email,
-          headerlists: listData,
-          colors: colors,
-          emailerror: 'The email you entered is already in use!'
-        });
+        await renderAccount(req, res, { emailerror: 'The email you entered is already in use!' });
         return;
       }
       else {
@@ -714,16 +823,34 @@ app.post('/editInfo', route(async function (req, res) {
         req.session.email = email;
         res.redirect('/myAccount');
       }
-    } else if (pass1 != '' && pass2 != '') {
-      if (pass1 != pass2) {
-        var token = crypto.randomBytes(16).toString('hex');
-        await con.asyncQuery('DELETE FROM PasswordResetToken WHERE uname = ?', [user]);
-        await con.asyncQuery('INSERT INTO PasswordResetToken (uname,token,date_added) VALUES (?, ?, NOW())', [user, token]);
-        res.redirect('/passwordReset/'+token);
+    } else if (pass1 != '' || pass2 != '') {
+      // Changing the password needs the current one, so a stolen or left-open
+      // session cannot be used to take over the account.
+      var keys = failureKeys(req, user);
+      var problem = null;
+      if (failedPerUser.isLimited(keys.user) || failedPerIp.isLimited(keys.ip)) {
+        problem = LOGIN_LIMITED;
       } else {
-        await updatePassword(user, pass1);
-        res.redirect('/myAccount');
+        let [rows] = await con.asyncQuery('SELECT password FROM User WHERE uname = ?', [user]);
+        var check = await passwords.verify(currentPassword, rows.length > 0 ? rows[0].password : null);
+        if (!check.ok) {
+          failedPerUser.hit(keys.user);
+          failedPerIp.hit(keys.ip);
+          problem = 'Your current password was not correct.';
+        } else if (pass1 != pass2) {
+          problem = 'The new passwords must match.';
+        } else {
+          problem = passwordProblem(pass1);
+        }
       }
+      if (problem) {
+        res.status(400);
+        await renderAccount(req, res, { passworderror: problem });
+        return;
+      }
+      failedPerUser.reset(keys.user);
+      await updatePassword(user, pass1);
+      res.redirect('/myAccount');
     } else {
       res.redirect('/myAccount');
     }
