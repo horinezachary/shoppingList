@@ -1,0 +1,64 @@
+// Diagnose a login problem for one account without changing anything.
+//
+//   node scripts/check-login.js <username>
+//
+// It asks for the password (typed text is not shown), looks the account up in
+// the database configured in config.js, and reports what kind of password hash
+// is stored and which form of the password matches it. The password is never
+// printed or stored.
+'use strict';
+
+const mysql = require('mysql');
+const bcrypt = require('bcryptjs');
+const config = require('../config.js')[process.env.NODE_ENV || 'development'];
+
+const uname = process.argv[2];
+if (!uname) {
+  console.log('usage: node scripts/check-login.js <username>');
+  process.exit(1);
+}
+
+function askHidden(question) {
+  return new Promise((resolve) => {
+    const rl = require('readline').createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+    rl._writeToOutput = function (text) {
+      if (text.includes(question)) { rl.output.write(text); }
+    };
+    rl.question(question, (answer) => { rl.output.write('\n'); rl.close(); resolve(answer); });
+  });
+}
+
+async function main() {
+  const db = mysql.createConnection(config.database);
+  const q = (sql, values) => new Promise((resolve, reject) => db.query(sql, values, (e, r) => (e ? reject(e) : resolve(r))));
+  const rows = await q('SELECT uname, password, salt, hash FROM User WHERE uname = ?', [uname]);
+  if (rows.length === 0) {
+    console.log('No user named "' + uname + '" (the lookup is case-insensitive on most MySQL setups).');
+    db.end();
+    return;
+  }
+  const u = rows[0];
+  const stored = u.password == null ? '' : String(u.password);
+  console.log('user found:        ' + u.uname);
+  console.log('password column:   length ' + stored.length + ', starts with "' + stored.slice(0, 4) + '"  (a bcrypt hash is 60 characters and starts with $2a$, $2b$ or $2y$)');
+  console.log('hash column:       ' + JSON.stringify(u.hash) + '   salt column: ' + (u.salt ? 'set (' + String(u.salt).length + ' characters)' : 'empty'));
+
+  const password = await askHidden('Password to test: ');
+  const candidates = [
+    ['quoted/escaped form (what the app uses)', mysql.escape(password)],
+    ['exactly as typed', password],
+    ['typed, trimmed of spaces', password.trim()]
+  ];
+  for (const [label, value] of candidates) {
+    let result;
+    try {
+      result = await bcrypt.compare(value, stored);
+    } catch (e) {
+      result = 'error: ' + e.message;
+    }
+    console.log('  ' + label.padEnd(42) + ' -> ' + result);
+  }
+  db.end();
+}
+
+main().catch((e) => { console.log('failed:', e.message); process.exit(1); });

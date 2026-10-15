@@ -310,6 +310,12 @@ app.post('/login', route(async function(req, res) {
   } else {
     var passIn = passwordInput(asString(req.body.password));
     bcrypt.compare(passIn, user[0].password, function(err, result) {
+      if (err) {
+        // a stored value that is not a valid bcrypt hash ends up here
+        console.log('login: could not check the password for "' + uname + '":', err.message);
+      } else if (result !== true) {
+        console.log('login: wrong password for "' + uname + '"');
+      }
       if (result === true) {
         //set values
         req.session.uname = user[0].uname;
@@ -388,7 +394,7 @@ app.post('/passwordReset', route(async function(req, res) {
     //generate token
     var token = crypto.randomBytes(16).toString('hex');
     await con.asyncQuery('DELETE FROM PasswordResetToken WHERE uname = ?', [uEmail[0].uname]);
-    await con.asyncQuery('INSERT INTO PasswordResetToken (uname,token) VALUES (?, ?)', [uEmail[0].uname, token]);
+    await con.asyncQuery('INSERT INTO PasswordResetToken (uname,token,date_added) VALUES (?, ?, NOW())', [uEmail[0].uname, token]);
     //send email
     ViewOption(transporter,nodemailerhbs);
     let HelperOptions = {
@@ -706,7 +712,7 @@ app.post('/editInfo', route(async function (req, res) {
       if (pass1 != pass2) {
         var token = crypto.randomBytes(16).toString('hex');
         await con.asyncQuery('DELETE FROM PasswordResetToken WHERE uname = ?', [user]);
-        await con.asyncQuery('INSERT INTO PasswordResetToken (uname,token) VALUES (?, ?)', [user, token]);
+        await con.asyncQuery('INSERT INTO PasswordResetToken (uname,token,date_added) VALUES (?, ?, NOW())', [user, token]);
         res.redirect('/passwordReset/'+token);
       } else {
         await updatePassword(user, pass1);
