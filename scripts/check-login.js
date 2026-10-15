@@ -40,6 +40,12 @@ async function main() {
   const rows = await q('SELECT uname, password, salt, hash FROM User WHERE uname = ?', [uname]);
   if (rows.length === 0) {
     console.log('No user named "' + uname + '" (the lookup is case-insensitive on most MySQL setups).');
+    const like = '%' + uname + '%';
+    const near = await q('SELECT uname, fname, lname, email FROM User WHERE uname LIKE ? OR email LIKE ? OR fname LIKE ? OR lname LIKE ? LIMIT 20', [like, like, like, like]);
+    if (near.length > 0) {
+      console.log('Accounts that look similar:');
+      near.forEach((r) => console.log('  ' + r.uname + '  (' + r.fname + ' ' + r.lname + ', ' + r.email + ')'));
+    }
     db.end();
     return;
   }
