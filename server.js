@@ -173,6 +173,25 @@ app.use('/:url', express.static('public'));
 app.use(originCheck);
 app.use(bodyParser.urlencoded({extended : false}));
 app.use(bodyParser.json());
+// TLS ends at the Apache reverse proxy, so Node itself only sees plain HTTP.
+// Two libraries refuse to issue a Secure cookie on a connection they do not
+// think is encrypted, and client-sessions silently drops the cookie when that
+// happens (every login would bounce straight back to the login page):
+//   * the cookies library, which looks at req.protocol. "trust proxy" makes
+//     Express take that from X-Forwarded-Proto, but only when the request
+//     comes from the loopback address, i.e. from Apache on this machine.
+//   * client-sessions itself, which looks at req.connection.proxySecure.
+// This is only safe because the server listens on the loopback address (see
+// app.listen below), so nothing but the proxy can set that header.
+if (COOKIE_SECURE) {
+  app.set('trust proxy', 'loopback');
+  app.use(function (req, res, next) {
+    if (req.protocol === 'https') {
+      req.connection.proxySecure = true;
+    }
+    next();
+  });
+}
 app.use(session({
   cookieName: 'session',
   secret: SESSION_SECRET,
@@ -297,6 +316,12 @@ app.post('/login', route(async function(req, res) {
   } else {
     var passIn = passwordInput(asString(req.body.password));
     bcrypt.compare(passIn, user[0].password, function(err, result) {
+      if (err) {
+        // a stored value that is not a valid bcrypt hash ends up here
+        console.log('login: could not check the password for "' + uname + '":', err.message);
+      } else if (result !== true) {
+        console.log('login: wrong password for "' + uname + '"');
+      }
       if (result === true) {
         //set values
         req.session.uname = user[0].uname;
@@ -375,7 +400,7 @@ app.post('/passwordReset', route(async function(req, res) {
     //generate token
     var token = crypto.randomBytes(16).toString('hex');
     await con.asyncQuery('DELETE FROM PasswordResetToken WHERE uname = ?', [uEmail[0].uname]);
-    await con.asyncQuery('INSERT INTO PasswordResetToken (uname,token) VALUES (?, ?)', [uEmail[0].uname, token]);
+    await con.asyncQuery('INSERT INTO PasswordResetToken (uname,token,date_added) VALUES (?, ?, NOW())', [uEmail[0].uname, token]);
     //send email
     ViewOption(transporter,nodemailerhbs);
     let HelperOptions = {
@@ -693,7 +718,7 @@ app.post('/editInfo', route(async function (req, res) {
       if (pass1 != pass2) {
         var token = crypto.randomBytes(16).toString('hex');
         await con.asyncQuery('DELETE FROM PasswordResetToken WHERE uname = ?', [user]);
-        await con.asyncQuery('INSERT INTO PasswordResetToken (uname,token) VALUES (?, ?)', [user, token]);
+        await con.asyncQuery('INSERT INTO PasswordResetToken (uname,token,date_added) VALUES (?, ?, NOW())', [user, token]);
         res.redirect('/passwordReset/'+token);
       } else {
         await updatePassword(user, pass1);
@@ -764,6 +789,9 @@ app.use(function (err, req, res, next) {
   res.status(500).send('Something went wrong. Please try again.');
 });
 
-app.listen(port, function () {
-    console.log("== Server listening on port", port);
+// Listen on the configured address (loopback by default) so the app can only be
+// reached through the Apache reverse proxy, not directly on its own port.
+var listenHost = process.env.HOST || (config.server && config.server.host) || '127.0.0.1';
+app.listen(port, listenHost, function () {
+    console.log("== Server listening on", listenHost + ":" + port);
 });

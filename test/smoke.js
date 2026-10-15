@@ -179,6 +179,43 @@ async function main() {
     }
   });
 
+  await check('secure cookies behind a TLS-terminating proxy (as in production with cookieSecure on)', async () => {
+    // mirrors the COOKIE_SECURE block in server.js; keep in sync
+    const express = require('express');
+    const session = require('client-sessions');
+    const app = express();
+    app.set('trust proxy', 'loopback');
+    app.use(function (req, res, next) {
+      if (req.protocol === 'https') { req.connection.proxySecure = true; }
+      next();
+    });
+    app.use(session({
+      cookieName: 'session',
+      secret: 'test-secret-test-secret-test-secret',
+      duration: 60 * 1000,
+      activeDuration: 60 * 1000,
+      cookie: { httpOnly: true, secure: true }
+    }));
+    app.post('/login', (req, res) => { req.session.uname = 'zed'; res.redirect('/home'); });
+    app.get('/home', (req, res) => { res.send('home:' + req.session.uname); });
+    const server = await new Promise((resolve) => {
+      const s = app.listen(0, '127.0.0.1', () => resolve(s));
+    });
+    try {
+      const base = 'http://127.0.0.1:' + server.address().port;
+      const viaProxy = { 'X-Forwarded-Proto': 'https' };
+      const r = await fetch(base + '/login', { method: 'POST', redirect: 'manual', headers: viaProxy });
+      assert.strictEqual(r.status, 302, 'login redirect');
+      const setCookie = r.headers.getSetCookie();
+      assert(setCookie.length > 0 && /secure/i.test(setCookie[0]), 'no Secure session cookie was sent');
+      const cookie = setCookie.map((c) => c.split(';')[0]).join('; ');
+      const home = await fetch(base + '/home', { headers: Object.assign({ cookie: cookie }, viaProxy) });
+      assert.strictEqual(await home.text(), 'home:zed', 'session did not survive a round trip');
+    } finally {
+      server.close();
+    }
+  });
+
   console.log(failures === 0 ? '\nAll checks passed.' : '\n' + failures + ' check(s) failed.');
   process.exit(failures === 0 ? 0 : 1);
 }
