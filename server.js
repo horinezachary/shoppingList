@@ -173,6 +173,19 @@ app.use('/:url', express.static('public'));
 app.use(originCheck);
 app.use(bodyParser.urlencoded({extended : false}));
 app.use(bodyParser.json());
+// TLS ends at the Apache reverse proxy, so Node itself only sees plain HTTP.
+// client-sessions refuses to issue a Secure cookie on a connection it does not
+// think is encrypted, so tell it when the proxy says the original request was
+// HTTPS. This is only safe because the server listens on the loopback address
+// (see app.listen below), which means only the proxy can set this header.
+if (COOKIE_SECURE) {
+  app.use(function (req, res, next) {
+    if (req.headers['x-forwarded-proto'] === 'https') {
+      req.connection.proxySecure = true;
+    }
+    next();
+  });
+}
 app.use(session({
   cookieName: 'session',
   secret: SESSION_SECRET,
@@ -764,6 +777,9 @@ app.use(function (err, req, res, next) {
   res.status(500).send('Something went wrong. Please try again.');
 });
 
-app.listen(port, function () {
-    console.log("== Server listening on port", port);
+// Listen on the configured address (loopback by default) so the app can only be
+// reached through the Apache reverse proxy, not directly on its own port.
+var listenHost = process.env.HOST || (config.server && config.server.host) || '127.0.0.1';
+app.listen(port, listenHost, function () {
+    console.log("== Server listening on", listenHost + ":" + port);
 });
