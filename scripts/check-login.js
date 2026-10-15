@@ -1,6 +1,6 @@
 // Diagnose a login problem for one account without changing anything.
 //
-//   node scripts/check-login.js <username>
+//   NODE_ENV=<same value the app runs with> node scripts/check-login.js <username>
 //
 // It asks for the password (typed text is not shown), looks the account up in
 // the database configured in config.js, and reports what kind of password hash
@@ -10,7 +10,13 @@
 
 const mysql = require('mysql');
 const bcrypt = require('bcryptjs');
-const config = require('../config.js')[process.env.NODE_ENV || 'development'];
+const env = process.env.NODE_ENV || 'development';
+const config = require('../config.js')[env];
+if (!config) {
+  console.log('config.js has no "' + env + '" section. Run this with the same NODE_ENV the app uses.');
+  process.exit(1);
+}
+console.log('config section:    ' + env + '  (database ' + config.database.user + '@' + config.database.host + '/' + config.database.database + ')');
 
 const uname = process.argv[2];
 if (!uname) {
