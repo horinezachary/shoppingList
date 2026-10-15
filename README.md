@@ -15,10 +15,10 @@
    Zachary Horine
 
 ### Development:
-   When developing, you will need to insert your credentials in a file named config.js. There is an example file to follow for format (exampleconfig.js). It should include the following, where user and pass are your username and password:
+   When developing, you will need to create a file named config.js (it is gitignored) based on exampleConfig.js. It holds the database credentials, the public site `url` (used to build email links and to check where POST requests come from), a `session.secret` used to sign login cookies, and the `mail` credentials used to send password-reset and list-sharing emails.
    ```
-   host: "sql_server",
-   user: "user",
-   password: "pass",
-   database: "recipes"
+   database: { host: "sql_server", user: "user", password: "pass", database: "recipes" }
+   session:  { secret: "<long random string>", cookieSecure: false }
+   mail:     { host: "smtp.gmail.com", port: 465, secure: true, user: "...", pass: "..." }
    ```
+   The session secret and mail credentials can instead be supplied with the `SESSION_SECRET`, `SMTP_USER` and `SMTP_PASS` environment variables. The server refuses to start without them. Never commit real credentials to the repository.
