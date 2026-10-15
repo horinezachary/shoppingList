@@ -14,7 +14,7 @@
     "url": "git://github.com/horinezachary/shoppingList.git"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -24,4 +24,4 @@
    The session secret and mail credentials can instead be supplied with the `SESSION_SECRET`, `SMTP_USER` and `SMTP_PASS` environment variables. The server refuses to start without them. Never commit real credentials to the repository.
 
 ### Requirements:
-   Node.js 22 or newer (24 recommended) and a MySQL database. After `npm install`, run `npm test` on the machine that will host the app: it checks that every dependency loads, that password hashing and the email templates work, and that the Express routes and cookie sessions behave, without needing a database. Please commit the `package-lock.json` that `npm install` creates, so every install gets the same versions.
+   Node.js 24 or newer and a MySQL database. After `npm install`, run `npm test` on the machine that will host the app: it checks that every dependency loads, that password hashing and the email templates work, and that the Express routes and cookie sessions behave, without needing a database. Please commit the `package-lock.json` that `npm install` creates, so every install gets the same versions.

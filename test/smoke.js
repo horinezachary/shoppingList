@@ -41,8 +41,8 @@ function atLeast(version, minimum) {
 
 async function main() {
   console.log('runtime');
-  await check('Node 22 or newer (running ' + process.versions.node + ')', () => {
-    assert(Number(process.versions.node.split('.')[0]) >= 22, 'package.json requires Node 22 or newer');
+  await check('Node 24 or newer (running ' + process.versions.node + ')', () => {
+    assert(Number(process.versions.node.split('.')[0]) >= 24, 'package.json requires Node 24 or newer');
   });
 
   console.log('dependencies');
