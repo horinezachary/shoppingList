@@ -23,17 +23,23 @@
                   </div>
                   <input type="email" class="form-control" name="email" placeholder="email">
                </div>
+               <div class="input-group form-group hidden" id="currentPasswordField">
+                  <div class="input-group-prepend">
+                     <span class="input-group-text"><i class="fas fa-key"></i></span>
+                  </div>
+                  <input type="password" class="form-control" name="current_password" placeholder="current password" autocomplete="current-password">
+               </div>
                <div class="input-group form-group hidden" id="password1Field">
                   <div class="input-group-prepend">
                      <span class="input-group-text"><i class="fas fa-key"></i></span>
                   </div>
-                  <input type="password" class="form-control" name="password" placeholder="password">
+                  <input type="password" class="form-control" name="password" placeholder="new password (at least 8 characters)" autocomplete="new-password">
                </div>
                <div class="input-group form-group hidden" id="password2Field">
                   <div class="input-group-prepend">
                      <span class="input-group-text"><i class="fas fa-key"></i></span>
                   </div>
-                  <input type="password" class="form-control" name="password2" placeholder="password again">
+                  <input type="password" class="form-control" name="password2" placeholder="new password again" autocomplete="new-password">
                </div>
             </div>
             <div class="modal-footer pb-0">

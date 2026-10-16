@@ -22,7 +22,10 @@
       </li>
       <li class="list-group-item">
          <div style="display:inline-block;">
-            <h5 class="font-weight-bold mb-0">Password<h5>
+            <h5 class="font-weight-bold mb-0">Password</h5>
+            {{#if passworderror}}
+               <div class="pb-1 pt-1 mb-0 mt-1 alert-danger alert text-center" role="alert">{{passworderror}}</div>
+            {{/if}}
          </div>
          <button type="button" class="btn btn-dark ml-2 float-right" style="display:inline-block;" onclick="showField('passwords');" data-toggle="modal" data-target="#editInfoModal">Change Password</button>
       </li>

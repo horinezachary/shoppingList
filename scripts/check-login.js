@@ -57,8 +57,8 @@ async function main() {
 
   const password = await askHidden('Password to test: ');
   const candidates = [
-    ['quoted/escaped form (what the app uses)', mysql.escape(password)],
-    ['exactly as typed', password],
+    ['exactly as typed (current form)', password],
+    ['quoted/escaped form (older accounts)', mysql.escape(password)],
     ['typed, trimmed of spaces', password.trim()]
   ];
   for (const [label, value] of candidates) {
