@@ -249,6 +249,89 @@ async function main() {
     }
   });
 
+  console.log('JSON API (lib/apiRouter.js with real express, and lib/api.js with an in-memory database)');
+  await check('API over HTTP: sign in, make a list, add and tick an item, sign out', async () => {
+    const express = require('express');
+    const mysql = require('mysql');
+    const fakeDb = require('./fakeDb');
+    const apiLib = require('../lib/api');
+    const limiters = require('../lib/rateLimit');
+    const db = fakeDb.create();
+    const passwords = require('../lib/passwords').create({ bcrypt: bcrypt, escape: (v) => mysql.escape(v), rounds: 4, log: () => {} });
+    db.state.users.push({ uname: 'zed', fname: 'Zed', lname: 'Test', email: 'zed@example.com', password: await passwords.hash('password123'), showAlert: 1 });
+    const api = apiLib.create({
+      con: db, passwords: passwords, tokens: require('../lib/apiTokens').create({ con: db, log: () => {} }),
+      config: { url: 'https://lorislist.example' },
+      limiters: {
+        failedPerUser: limiters.createLimiter({ max: 5, windowMs: 60000 }), failedPerIp: limiters.createLimiter({ max: 30, windowMs: 60000 }),
+        resetRequests: limiters.createLimiter({ max: 5, windowMs: 60000 }), shareRequests: limiters.createLimiter({ max: 20, windowMs: 60000 }),
+        registrations: limiters.createLimiter({ max: 10, windowMs: 60000 })
+      },
+      failureKeys: limiters.failureKeys, updatePassword: async () => {}, sendMail: () => {}, log: () => {}
+    });
+    const app = express();
+    app.use('/api/v1', require('../lib/apiRouter').create(express, api));
+    app.use((req, res) => { res.status(404).send('<html>web 404</html>'); });
+    const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+    try {
+      const base = 'http://127.0.0.1:' + server.address().port + '/api/v1';
+      const call = async (method, url, body, token) => {
+        const headers = {};
+        if (body !== undefined) { headers['Content-Type'] = 'application/json'; }
+        if (token) { headers.Authorization = 'Bearer ' + token; }
+        const r = await fetch(base + url, { method: method, headers: headers, body: typeof body === 'string' ? body : (body === undefined ? undefined : JSON.stringify(body)) });
+        const text = await r.text();
+        return { status: r.status, headers: r.headers, json: text ? JSON.parse(text) : null };
+      };
+
+      let r = await call('GET', '/');
+      assert.strictEqual(r.status, 200);
+      assert.strictEqual(r.headers.get('cache-control'), 'no-store');
+      r = await call('GET', '/nonsense');
+      assert.strictEqual(r.status, 404);
+      assert.strictEqual(r.json.error.code, 'not_found', 'unknown API paths must answer in JSON');
+      r = await call('POST', '/auth/login', '{not json');
+      assert.strictEqual(r.status, 400);
+      assert.strictEqual(r.json.error.code, 'invalid_json');
+      r = await call('POST', '/auth/login', { username: 'x'.repeat(60000) });
+      assert.strictEqual(r.status, 413);
+      r = await call('GET', '/me');
+      assert.strictEqual(r.status, 401);
+      assert.strictEqual(r.headers.get('www-authenticate'), 'Bearer');
+      r = await call('POST', '/auth/login', ['not', 'an', 'object']);
+      assert.strictEqual(r.status, 400);
+
+      r = await call('POST', '/auth/login', { username: 'zed', password: 'password123', deviceName: 'curl' });
+      assert.strictEqual(r.status, 200);
+      assert.strictEqual(r.headers.get('set-cookie'), null, 'the API must not set cookies');
+      const token = r.json.accessToken;
+      r = await call('POST', '/lists', { name: 'Food', color: 'ff9900' }, token);
+      assert.strictEqual(r.status, 201);
+      const id = r.json.list.id;
+      r = await call('POST', '/lists/' + id + '/items', { name: 'Milk', count: 2 }, token);
+      assert.strictEqual(r.status, 201);
+      const itemId = r.json.items[0].id;
+      r = await call('PATCH', '/lists/' + id + '/items/' + itemId, { checked: true }, token);
+      assert.deepStrictEqual(r.json, { id: itemId, checked: true });
+      r = await call('GET', '/lists/' + id, undefined, token);
+      assert.deepStrictEqual(r.json.list.items, [{ id: itemId, name: 'Milk', count: 2, checked: true }]);
+      r = await call('DELETE', '/lists/' + id + '/items?checked=true', undefined, token);
+      assert.deepStrictEqual(r.json, { deleted: 1 });
+      r = await call('DELETE', '/lists/' + id, undefined, token);
+      assert.strictEqual(r.status, 204);
+      assert.strictEqual(r.json, null);
+      r = await call('POST', '/auth/logout', undefined, token);
+      assert.strictEqual(r.status, 204);
+      r = await call('GET', '/me', undefined, token);
+      assert.strictEqual(r.status, 401);
+      // paths outside /api/v1 still reach the website
+      const web = await fetch(base.replace('/api/v1', '') + '/anything');
+      assert.strictEqual(await web.text(), '<html>web 404</html>');
+    } finally {
+      server.close();
+    }
+  });
+
   console.log(failures === 0 ? '\nAll checks passed.' : '\n' + failures + ' check(s) failed.');
   process.exit(failures === 0 ? 0 : 1);
 }

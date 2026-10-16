@@ -1,0 +1,629 @@
+openapi: 3.0.3
+info:
+  title: Lori's List API
+  version: "1.0.0"
+  description: |
+    JSON API for the Lori's List shopping list app, for the iPhone and Android apps.
+    See docs/API.md for the sign-in flow and examples.
+
+    Every request except sign-in, registration, refresh and password reset needs
+    `Authorization: Bearer <accessToken>`. Errors are always
+    `{"error": {"code": "...", "message": "..."}}`.
+servers:
+  - url: https://lorislist.horinetech.com/api/v1
+security:
+  - bearer: []
+tags:
+  - name: Auth
+  - name: Account
+  - name: Lists
+  - name: Items
+  - name: Sharing
+paths:
+  /:
+    get:
+      summary: API name and version
+      security: []
+      responses:
+        "200":
+          description: The API is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name: { type: string }
+                  version: { type: integer, example: 1 }
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in
+      description: Five wrong passwords for one username from one address, or 30 from one address, lock sign-in for 15 minutes (429).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+                deviceName: { type: string, maxLength: 100, example: Lori's iPhone }
+      responses:
+        "200": { $ref: "#/components/responses/SignedIn" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "503": { $ref: "#/components/responses/Error" }
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Create an account and sign in
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [firstName, lastName, username, email, password]
+              properties:
+                firstName: { type: string }
+                lastName: { type: string }
+                username: { type: string, pattern: '^[A-Za-z0-9._@+-]{1,50}$' }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8, maxLength: 200 }
+                deviceName: { type: string }
+      responses:
+        "201": { $ref: "#/components/responses/SignedIn" }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooMany" }
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Get a new access token
+      description: The refresh token stays the same and is valid for another 60 days from now.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/SignedIn" }
+        "401": { $ref: "#/components/responses/Error" }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Sign out this device
+      responses:
+        "204": { description: Signed out. }
+        "401": { $ref: "#/components/responses/Error" }
+  /auth/logout-everywhere:
+    post:
+      tags: [Auth]
+      summary: Sign out every device
+      responses:
+        "204": { description: Signed out. }
+        "401": { $ref: "#/components/responses/Error" }
+  /auth/sessions:
+    get:
+      tags: [Auth]
+      summary: List signed-in devices
+      responses:
+        "200":
+          description: Devices.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Error" }
+  /auth/sessions/{sessionId}:
+    delete:
+      tags: [Auth]
+      summary: Sign out one device
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Signed out. }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /auth/password-reset:
+    post:
+      tags: [Auth]
+      summary: Email a password reset link
+      description: Always answers 202, whether or not the address has an account. The link opens the website. At most 5 per address per hour.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "202": { description: If the address has an account, an email was sent. }
+        "400": { $ref: "#/components/responses/Error" }
+  /auth/password-reset/{token}:
+    get:
+      tags: [Auth]
+      summary: Check that a reset token is still valid
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Valid. }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [Auth]
+      summary: Set a new password with a reset token
+      description: Tokens work once and expire after 24 hours. All devices are signed out.
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, minLength: 8, maxLength: 200 }
+      responses:
+        "204": { description: Password changed. }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /me:
+    get:
+      tags: [Account]
+      summary: Your profile
+      responses:
+        "200": { $ref: "#/components/responses/Me" }
+        "401": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [Account]
+      summary: Update your profile
+      description: Send only the fields to change.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName: { type: string }
+                lastName: { type: string }
+                email: { type: string, format: email }
+                showTips: { type: boolean }
+      responses:
+        "200": { $ref: "#/components/responses/Me" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /me/password:
+    put:
+      tags: [Account]
+      summary: Change your password
+      description: Signs out your other devices. Wrong current passwords count toward the sign-in lockout.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 8, maxLength: 200 }
+      responses:
+        "204": { description: Password changed. }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooMany" }
+  /colors:
+    get:
+      tags: [Lists]
+      summary: Colours a list can use
+      responses:
+        "200":
+          description: Colours.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  colors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        hex: { type: string, example: ff9900 }
+                        name: { type: string, example: Orange }
+        "401": { $ref: "#/components/responses/Error" }
+  /items/suggestions:
+    get:
+      tags: [Items]
+      summary: Item names you have used before, for autocomplete
+      responses:
+        "200":
+          description: Names, most used first.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    items: { type: string }
+        "401": { $ref: "#/components/responses/Error" }
+  /lists:
+    get:
+      tags: [Lists]
+      summary: Lists you own or that are shared with you
+      responses:
+        "200":
+          description: Lists.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lists:
+                    type: array
+                    items: { $ref: "#/components/schemas/List" }
+        "401": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [Lists]
+      summary: Create a list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, color]
+              properties:
+                name: { type: string, maxLength: 100 }
+                color: { type: string, description: "6-digit hex colour, with or without a leading #", example: ff9900 }
+      responses:
+        "201": { $ref: "#/components/responses/ListResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+  /lists/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/listId" }
+    get:
+      tags: [Lists]
+      summary: A list with its items
+      responses:
+        "200":
+          description: The list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  list: { $ref: "#/components/schemas/ListWithItems" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [Lists]
+      summary: Rename or recolour a list (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 100 }
+                color: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/ListResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Lists]
+      summary: Delete a list (owner only)
+      responses:
+        "204": { description: Deleted. }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /lists/{id}/members/me:
+    delete:
+      tags: [Sharing]
+      summary: Leave a list that was shared with you
+      description: The owner cannot leave their own list (400); delete it instead.
+      parameters:
+        - { $ref: "#/components/parameters/listId" }
+      responses:
+        "204": { description: You left the list. }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /lists/{id}/items:
+    parameters:
+      - { $ref: "#/components/parameters/listId" }
+    post:
+      tags: [Items]
+      summary: Add an item (owner or edit access)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 100 }
+                count: { type: integer, minimum: 1, description: Quantity; leave out for none. }
+      responses:
+        "201":
+          description: The list's items after adding.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Item" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Items]
+      summary: Remove all ticked items (owner or edit access)
+      parameters:
+        - name: checked
+          in: query
+          required: true
+          description: Must be `true`, so a bare DELETE cannot clear a list by accident.
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: How many were removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted: { type: integer }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /lists/{id}/items/{itemId}:
+    parameters:
+      - { $ref: "#/components/parameters/listId" }
+      - { name: itemId, in: path, required: true, schema: { type: integer } }
+    patch:
+      tags: [Items]
+      summary: Tick or untick an item (owner or edit access)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [checked]
+              properties:
+                checked: { type: boolean }
+      responses:
+        "200":
+          description: The new state.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+                  checked: { type: boolean }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Items]
+      summary: Remove an item (owner or edit access)
+      responses:
+        "204": { description: Removed. }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /lists/{id}/shares:
+    post:
+      tags: [Sharing]
+      summary: Invite someone by email (owner only)
+      description: Sends an email with a link. The recipient accepts in the website or, once the app handles the link, in the app via `/shares/{key}`. At most 20 per account per hour.
+      parameters:
+        - { $ref: "#/components/parameters/listId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, permission]
+              properties:
+                email: { type: string, format: email }
+                permission: { type: string, enum: [edit, view] }
+      responses:
+        "202": { description: Invitation sent. }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooMany" }
+  /shares/{key}:
+    parameters:
+      - { name: key, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Sharing]
+      summary: Look at an invitation
+      responses:
+        "200":
+          description: The invitation.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share:
+                    type: object
+                    properties:
+                      key: { type: string }
+                      permission: { type: string, enum: [edit, view] }
+                      list:
+                        type: object
+                        properties:
+                          id: { type: integer }
+                          name: { type: string }
+                          color: { type: string }
+                          owner: { type: string }
+        "404": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [Sharing]
+      summary: Accept or decline an invitation
+      description: Invitations work once. You cannot accept an invitation to your own list (400).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [response]
+              properties:
+                response: { type: string, enum: [accept, deny] }
+      responses:
+        "200":
+          description: Accepted; the list is returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  list: { $ref: "#/components/schemas/List" }
+        "204": { description: Declined. }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: The `accessToken` from sign-in (valid 60 minutes).
+  parameters:
+    listId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+  schemas:
+    User:
+      type: object
+      properties:
+        username: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        email: { type: string }
+    List:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        color: { type: string, example: ff9900 }
+        owner: { type: string }
+        role: { type: string, enum: [owner, edit, view] }
+        lastChange: { type: string, format: date-time, nullable: true }
+    ListWithItems:
+      allOf:
+        - $ref: "#/components/schemas/List"
+        - type: object
+          properties:
+            canEdit: { type: boolean }
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/Item" }
+    Item:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        count: { type: integer, nullable: true }
+        checked: { type: boolean }
+    Session:
+      type: object
+      properties:
+        id: { type: integer }
+        deviceName: { type: string }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+        current: { type: boolean }
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum: [invalid_request, invalid_json, unauthorized, invalid_credentials, invalid_refresh_token, wrong_password, forbidden, not_found, email_in_use, username_taken, too_many_requests, too_large, api_not_ready, server_error]
+            message: { type: string }
+  responses:
+    Error:
+      description: Something is wrong with the request. See `error.code`.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooMany:
+      description: Too many attempts. Wait `Retry-After` seconds.
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    SignedIn:
+      description: Tokens and the signed-in user.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              user: { $ref: "#/components/schemas/User" }
+              accessToken: { type: string }
+              refreshToken: { type: string }
+              tokenType: { type: string, example: Bearer }
+              expiresIn: { type: integer, description: Seconds until the access token expires., example: 3600 }
+    Me:
+      description: Your profile.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              user:
+                allOf:
+                  - $ref: "#/components/schemas/User"
+                  - type: object
+                    properties:
+                      showTips: { type: boolean }
+    ListResult:
+      description: The list.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              list: { $ref: "#/components/schemas/List" }

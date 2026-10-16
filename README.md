@@ -14,6 +14,11 @@
    <p>Thanks,</p>
    Zachary Horine
 
+### API for mobile apps:
+A JSON API lives under `/api/v1`. See [docs/API.md](docs/API.md) for the sign-in flow and
+[docs/openapi.yaml](docs/openapi.yaml) for every endpoint. Before first use, create its table with
+`mysql … < migrations/001_api_tokens.sql`.
+
 ### Development:
    When developing, you will need to create a file named config.js (it is gitignored) based on exampleConfig.js. It holds the database credentials, the public site `url` (used to build email links and to check where POST requests come from), a `session.secret` used to sign login cookies, and the `mail` credentials used to send password-reset and list-sharing emails.
    ```
