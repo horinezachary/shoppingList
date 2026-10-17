@@ -210,6 +210,13 @@ con.asyncQuery('SELECT 1 FROM ApiToken LIMIT 1').catch(function (e) {
   }
 });
 
+// Lets the iPhone and Android apps open invitation and password-reset links (see
+// lib/appLinks.js). Before express.static, which would skip the .well-known folder.
+const appLinkFiles = require('./lib/appLinks').mount(app, config.appLinks);
+if (appLinkFiles.apple || appLinkFiles.android) {
+  console.log('App links: serving ' + [appLinkFiles.apple && 'iOS', appLinkFiles.android && 'Android'].filter(Boolean).join(' and ') + ' association file(s).');
+}
+
 app.use(express.static('public'));
 app.use('/:url', express.static('public'));
 app.use(originCheck);

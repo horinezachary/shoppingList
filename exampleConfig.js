@@ -22,6 +22,18 @@ development: {
         //set to true once the node process sees HTTPS (or trusts a proxy that does)
         cookieSecure: false
     },
+    //Lets the iPhone and Android apps open invitation and password-reset links
+    //instead of the browser. Leave it out and links open the website, as before.
+    //  ios.appIds     your Apple Team ID, a dot, then the app's bundle id
+    //  android.sha256 the SHA-256 fingerprint(s) of the key the app is signed with
+    //                 (Play Console > App signing, or `./gradlew signingReport`)
+    //appLinks: {
+    //    ios: { appIds: ['ABCDE12345.dev.horine.lorislist'] },
+    //    android: {
+    //        package: 'dev.horine.lorislist',
+    //        sha256: ['AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99']
+    //    }
+    //},
     //outgoing mail (password resets and list sharing).
     //Can also be provided with the SMTP_USER and SMTP_PASS environment variables.
     mail: {
