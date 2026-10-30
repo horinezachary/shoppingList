@@ -2,6 +2,7 @@ var mysql = require('mysql');
 var env = process.env.NODE_ENV || 'development';
 var config = require('./config')[env];
 var con = require('./sqlConfig');
+const accounts = require('./lib/accounts');
 
 // Secrets come from config.js (which is gitignored) or from environment
 // variables. They must never be committed to the repository.
@@ -310,6 +311,14 @@ async function authorize(session, res, authLevel, page, execute) {
     res.redirect('/login?redirect=' + encodeURIComponent(page.redirect));
     return false;
   }
+  // The account may have been deleted (from an app, or another browser) since
+  // this cookie was issued; sign the cookie out instead of acting for nobody.
+  let [account] = await con.asyncQuery('SELECT uname FROM User WHERE uname = ?', [session.uname]);
+  if (account.length === 0) {
+    session.reset();
+    res.redirect('/login?redirect=' + encodeURIComponent(page.redirect));
+    return false;
+  }
   if (authLevel == USER) {
     return true;
   }
@@ -438,7 +447,7 @@ app.post('/register', route(async function(req, res) {
     error = 'Username, email and password are required.';
   } else if (emailIn.length > 0) {
     error = 'Email is already in use!';
-  } else if (users.length > 0) {
+  } else if (users.length > 0 || await accounts.isRetired(con, uname)) {
     error = 'Username is already in use!';
   } else if (!isEmail(email)) {
     error = 'Please enter a valid email address.';

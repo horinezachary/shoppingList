@@ -14,6 +14,9 @@ function create() {
     pending: [],     // share_pending rows
     resets: [],      // { uname, token, added }
     tokens: [],      // ApiToken rows
+    suggestions: [], // Item rows that are on no list any more: { item_id, item_name, owner }
+    retired: [],     // DeletedAccount uname_hash values
+    failOn: null,    // a statement prefix that throws, to test rollbacks
     colors: [{ id: 1, hex: 'ff9900', 'alt-text': 'Orange' }, { id: 2, hex: '3366cc', 'alt-text': 'Blue' }],
     nextList: 1,
     nextItem: 1,
@@ -33,6 +36,7 @@ function create() {
     state.log.push(n);
     p = p || [];
     const is = (prefix) => n.startsWith(prefix);
+    if (state.failOn && is(state.failOn)) { throw new Error('fakeDb: failing on purpose'); }
 
     // ---- users ----
     if (is('SELECT * FROM User WHERE uname = ?')) { return rows(state.users.filter((u) => lower(u.uname) === lower(p[0]))); }
@@ -79,6 +83,30 @@ function create() {
     }
     if (is('SELECT * FROM Item WHERE Item.owner = ?')) { return rows(state.items.filter((i) => i.owner === p[0])); }
     if (is('SELECT * FROM colors')) { return rows(state.colors); }
+    if (is('SELECT list_id FROM ShoppingList WHERE ShoppingList.owner = ?')) {
+      return rows(state.lists.filter((l) => l.owner === p[0]).map((l) => ({ list_id: l.list_id })));
+    }
+    if (is('DELETE FROM Shared_list WHERE share_user = ?')) {
+      state.shares = state.shares.filter((s) => s.share_user !== p[0]);
+      return done();
+    }
+    if (is('DELETE FROM Item WHERE Item.owner = ? AND NOT EXISTS (SELECT 1 FROM ShoppingList_Item WHERE ShoppingList_Item.item_id = Item.item_id)')) {
+      state.suggestions = state.suggestions.filter((i) => i.owner !== p[0]);
+      return done();
+    }
+
+    // ---- deleted accounts ----
+    if (is('DELETE FROM User WHERE uname = ?')) {
+      state.users = state.users.filter((u) => u.uname !== p[0]);
+      return done({ affectedRows: 1 });
+    }
+    if (is('INSERT IGNORE INTO DeletedAccount (uname_hash, deleted_at) VALUES (?, NOW())')) {
+      if (!state.retired.includes(p[0])) { state.retired.push(p[0]); }
+      return done({ affectedRows: 1 });
+    }
+    if (is('SELECT uname_hash FROM DeletedAccount WHERE uname_hash = ?')) {
+      return rows(state.retired.filter((h) => h === p[0]).map((h) => ({ uname_hash: h })));
+    }
 
     // stored procedures
     if (is('CALL addList(?,?,?)')) {
@@ -119,6 +147,10 @@ function create() {
       return done({ affectedRows: 1 });
     }
     if (is('SELECT DISTINCT * FROM share_pending WHERE share_key = ?')) { return rows(state.pending.filter((s) => s.share_key === p[0])); }
+    if (is('DELETE FROM share_pending WHERE list_owner = ? OR share_email = ?')) {
+      state.pending = state.pending.filter((s) => !(s.list_owner === p[0] || lower(s.share_email) === lower(p[1])));
+      return done();
+    }
     if (is('DELETE FROM share_pending WHERE share_key = ?')) {
       state.pending = state.pending.filter((s) => s.share_key !== p[0]);
       return done({ affectedRows: 1 });
@@ -202,7 +234,18 @@ function create() {
     throw new Error('fakeDb: unhandled SQL: ' + n);
   }
 
-  return { asyncQuery: asyncQuery, state: state };
+  // Like the real one: everything work() does is undone if it throws.
+  async function transaction(work) {
+    const saved = structuredClone(Object.assign({}, state, { log: [] }));
+    try {
+      return await work(asyncQuery);
+    } catch (e) {
+      Object.assign(state, saved, { log: state.log });
+      throw e;
+    }
+  }
+
+  return { asyncQuery: asyncQuery, transaction: transaction, state: state };
 }
 
 module.exports = { create: create };

@@ -215,6 +215,30 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Account]
+      summary: Delete your account
+      description: >
+        Deletes the account and everything in it: your lists (with their items and
+        shares), your places on other people's lists, invitations, item suggestions and
+        every signed-in device. Items you added to someone else's list stay on that list.
+        The username cannot be registered again. Wrong passwords count toward the sign-in
+        lockout. A retry without an Idempotency-Key after a lost answer gets 401, since
+        the token is gone; treat that as done.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string }
+      responses:
+        "204": { description: Account deleted. }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooMany" }
   /me/password:
     put:
       tags: [Account]
