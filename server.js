@@ -929,6 +929,22 @@ app.get('/register', function (req, res, next) {
    });
 });
 
+// The privacy policy and terms. App Store Connect and Google Play link to /privacy,
+// so both pages work signed in or out.
+const LEGAL_EFFECTIVE_DATE = 'October 30, 2026';
+function legalPage(view, title) {
+  return function (req, res) {
+    res.render(view, {
+      title: title + ' - Lori\'s List',
+      layout: 'bare',
+      loginButton: !req.session.uname,
+      effectiveDate: LEGAL_EFFECTIVE_DATE
+    });
+  };
+}
+app.get('/privacy', legalPage('privacy', 'Privacy Policy'));
+app.get('/terms', legalPage('terms', 'Terms of Use'));
+
 app.get('*', function (req, res) {
   renderNotFound(res);
 });
