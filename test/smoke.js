@@ -101,7 +101,8 @@ async function main() {
         extName: '.hbs',
         partialsDir: 'views/partials',
         layoutsDir: 'views/layouts',
-        defaultLayout: 'email.handlebars'
+        defaultLayout: 'email.handlebars',
+        helpers: require('../lib/viewHelpers')
       },
       viewPath: 'views/email',
       extName: '.handlebars'
@@ -124,6 +125,7 @@ async function main() {
     assert(html.includes('https://example.com/passwordReset/abc123'), 'link missing');
     assert(html.includes('Lori\'s List Development Team'), 'template body missing');
     assert(html.includes('page-header'), 'email layout was not applied');
+    assert(html.includes('Copyright ' + new Date().getFullYear()), 'footer year is not the current year');
   });
   await check('share email renders for an existing user', async () => {
     const html = await render('share', {
