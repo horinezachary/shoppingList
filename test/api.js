@@ -404,6 +404,82 @@ async function main() {
     const r = await h.call('put', '/me/password', { token: zed.token, body: { currentPassword: 'password123', newPassword: 'brand-new-pass' } });
     assert.strictEqual(r.status, 429);
   });
+  await check('deleting the account needs the password', async () => {
+    const h = harness();
+    const zed = await h.member('zed');
+    const r = await h.call('delete', '/me', { token: zed.token, body: { password: 'wrong' } });
+    assert.strictEqual(r.status, 400);
+    assert.strictEqual(r.body.error.code, 'wrong_password');
+    assert.strictEqual((await h.call('delete', '/me', { token: zed.token })).status, 400, 'no password was accepted');
+    assert.strictEqual((await h.call('get', '/me', { token: zed.token })).status, 200, 'the account went anyway');
+    assert.strictEqual((await h.call('delete', '/me', { header: 'Bearer nope' })).status, 401);
+  });
+  await check('deleting the account removes its data, signs it out everywhere and retires the username', async () => {
+    const h = harness();
+    await h.addUser('zed');
+    const phone = await h.signIn('zed', 'Phone');
+    const tablet = await h.signIn('zed', 'Tablet');
+    const amy = await h.member('amy');
+    const mine = (await h.call('post', '/lists', { token: phone.accessToken, body: { name: 'Mine', color: 'ff9900' } })).body.list;
+    await h.call('post', '/lists/:id/items', { token: phone.accessToken, params: { id: String(mine.id) }, body: { name: 'Milk' } });
+    const hers = (await h.call('post', '/lists', { token: amy.token, body: { name: 'Hers', color: 'ff9900' } })).body.list;
+    h.db.state.shares.push({ list_id: mine.id, share_user: 'amy', share_perms: 'EDIT' });
+    h.db.state.shares.push({ list_id: hers.id, share_user: 'zed', share_perms: 'EDIT' });
+    await h.call('post', '/lists/:id/items', { token: phone.accessToken, params: { id: String(hers.id) }, body: { name: 'Bread' } });
+    await h.call('post', '/lists/:id/shares', { token: phone.accessToken, params: { id: String(mine.id) }, body: { email: 'bob@example.com', permission: 'view' } });
+    await h.call('post', '/lists/:id/shares', { token: amy.token, params: { id: String(hers.id) }, body: { email: 'ZED@example.com', permission: 'view' } });
+    h.db.state.resets.push({ uname: 'zed', token: 'r'.repeat(32), added: h.db.state.now });
+    h.db.state.suggestions.push({ item_id: 1, item_name: 'Old', owner: 'zed' }, { item_id: 2, item_name: 'Kept', owner: 'amy' });
+
+    const r = await h.call('delete', '/me', { token: phone.accessToken, body: { password: 'password123' } });
+    assert.strictEqual(r.status, 204, JSON.stringify(r.body));
+    const s = h.db.state;
+    assert(!s.users.some((u) => u.uname === 'zed'), 'the User row is still there');
+    assert(!s.lists.some((l) => l.owner === 'zed'), 'their lists are still there');
+    assert(!s.shares.some((x) => x.share_user === 'zed' || x.list_id === mine.id), 'shares are still there');
+    assert(!s.pending.some((x) => x.list_owner === 'zed' || x.share_email.toLowerCase() === 'zed@example.com'), 'invitations are still there');
+    assert(!s.resets.some((x) => x.uname === 'zed'), 'reset links are still there');
+    assert(!s.tokens.some((t) => t.uname === 'zed'), 'sign-ins are still there');
+    assert.deepStrictEqual(s.suggestions.map((i) => i.owner), ['amy']);
+    // what they added to amy's list stays on amy's list, and amy is untouched
+    const list = (await h.call('get', '/lists/:id', { token: amy.token, params: { id: String(hers.id) } })).body.list;
+    assert.deepStrictEqual(list.items.map((i) => i.name), ['Bread']);
+    assert.strictEqual((await h.call('get', '/me', { token: amy.token })).status, 200);
+
+    for (const token of [phone.accessToken, tablet.accessToken]) {
+      assert.strictEqual((await h.call('get', '/me', { token: token })).status, 401, 'a device stayed signed in');
+    }
+    assert.strictEqual((await h.call('post', '/auth/refresh', { body: { refreshToken: tablet.refreshToken } })).status, 401);
+    assert.strictEqual((await h.call('post', '/auth/login', { body: { username: 'zed', password: 'password123' } })).status, 401);
+    const again = await h.call('post', '/auth/register', { body: { firstName: 'Z', lastName: 'Z', username: 'ZED', email: 'new@example.com', password: 'password123' } });
+    assert.strictEqual(again.status, 409, 'the username could be registered again');
+    assert.strictEqual(again.body.error.code, 'username_taken');
+    const email = await h.call('post', '/auth/register', { body: { firstName: 'Z', lastName: 'Z', username: 'zed2', email: 'zed@example.com', password: 'password123' } });
+    assert.strictEqual(email.status, 201, 'the email address could not be used again');
+  });
+  await check('a failure part way through deleting the account changes nothing', async () => {
+    const h = harness();
+    const zed = await h.member('zed');
+    await h.call('post', '/lists', { token: zed.token, body: { name: 'Mine', color: 'ff9900' } });
+    h.db.state.failOn = 'DELETE FROM User';
+    const r = await h.call('delete', '/me', { token: zed.token, body: { password: 'password123' } });
+    assert.strictEqual(r.status, 500);
+    assert.strictEqual(h.db.state.lists.length, 1, 'the list was deleted');
+    assert.strictEqual(h.db.state.retired.length, 0, 'the username was retired');
+    h.db.state.failOn = null;
+    assert.strictEqual((await h.call('get', '/me', { token: zed.token })).status, 200, 'the device was signed out');
+    assert.strictEqual((await h.call('delete', '/me', { token: zed.token, body: { password: 'password123' } })).status, 204, 'trying again failed');
+  });
+  await check('guessing the password to delete the account is rate limited', async () => {
+    const h = harness();
+    const zed = await h.member('zed');
+    for (let i = 0; i < 5; i++) {
+      await h.call('delete', '/me', { token: zed.token, body: { password: 'wrong' + i } });
+    }
+    const r = await h.call('delete', '/me', { token: zed.token, body: { password: 'password123' } });
+    assert.strictEqual(r.status, 429);
+    assert.strictEqual((await h.call('get', '/me', { token: zed.token })).status, 200);
+  });
   await check('colours and item suggestions', async () => {
     const h = harness();
     const zed = await h.member('zed');

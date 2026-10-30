@@ -3,6 +3,9 @@
 		<h3>Sign In</h3>
 	</div>
 	<div class="card-body">
+      {{#if notice}}
+         <div class="pb-1 pt-1 alert-success alert text-center" role="status">{{notice}}</div>
+      {{/if}}
       {{#if error}}
          <div class="pb-1 pt-1 alert-danger alert text-center" role="alert">{{error}}</div>
       {{/if}}

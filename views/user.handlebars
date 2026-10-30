@@ -48,3 +48,19 @@
    {{>deleteModal}}
    {{>editListModal}}
 </div>
+
+<div class="card list mt-3" id="deleteAccountHolder" style="width: 95%; max-width: 40rem;">
+   <ul class="list-group list-group-flush">
+      <li class="list-group-item">
+         <div style="display:inline-block;">
+            <h5 class="font-weight-bold mb-1">Delete account</h5>
+            <h6 class="mb-0">Permanently delete your account and your lists.</h6>
+            {{#if deleteerror}}
+               <div class="pb-1 pt-1 mb-0 mt-1 alert-danger alert text-center" role="alert">{{deleteerror}}</div>
+            {{/if}}
+         </div>
+         <button type="button" class="btn btn-danger ml-2 float-right" style="display:inline-block;" data-toggle="modal" data-target="#deleteAccountModal">Delete</button>
+      </li>
+   </ul>
+   {{>deleteAccountModal}}
+</div>

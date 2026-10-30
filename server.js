@@ -2,6 +2,7 @@ var mysql = require('mysql');
 var env = process.env.NODE_ENV || 'development';
 var config = require('./config')[env];
 var con = require('./sqlConfig');
+const accounts = require('./lib/accounts');
 
 // Secrets come from config.js (which is gitignored) or from environment
 // variables. They must never be committed to the repository.
@@ -310,6 +311,14 @@ async function authorize(session, res, authLevel, page, execute) {
     res.redirect('/login?redirect=' + encodeURIComponent(page.redirect));
     return false;
   }
+  // The account may have been deleted (from an app, or another browser) since
+  // this cookie was issued; sign the cookie out instead of acting for nobody.
+  let [account] = await con.asyncQuery('SELECT uname FROM User WHERE uname = ?', [session.uname]);
+  if (account.length === 0) {
+    session.reset();
+    res.redirect('/login?redirect=' + encodeURIComponent(page.redirect));
+    return false;
+  }
   if (authLevel == USER) {
     return true;
   }
@@ -438,7 +447,7 @@ app.post('/register', route(async function(req, res) {
     error = 'Username, email and password are required.';
   } else if (emailIn.length > 0) {
     error = 'Email is already in use!';
-  } else if (users.length > 0) {
+  } else if (users.length > 0 || await accounts.isRetired(con, uname)) {
     error = 'Username is already in use!';
   } else if (!isEmail(email)) {
     error = 'Please enter a valid email address.';
@@ -896,6 +905,37 @@ app.post('/l/:list/editList', route(async function (req, res) {
   }
 }));
 
+// Deletes the account and everything in it (lib/accounts.js), after checking
+// the password the same way a password change does.
+app.post('/deleteAccount', route(async function (req, res) {
+  if (await authorize(req.session,res,USER,{redirect:'/myAccount'},EXECUTE)){ //is logged in
+    var user = req.session.uname;
+    var keys = failureKeys(req, user);
+    var problem = null;
+    let [rows] = await con.asyncQuery('SELECT * FROM User WHERE uname = ?', [user]);
+    if (failedPerUser.isLimited(keys.user) || failedPerIp.isLimited(keys.ip)) {
+      problem = LOGIN_LIMITED;
+    } else {
+      var check = await passwords.verify(asString(req.body.password), rows.length > 0 ? rows[0].password : null);
+      if (!check.ok) {
+        failedPerUser.hit(keys.user);
+        failedPerIp.hit(keys.ip);
+        problem = 'Your password was not correct.';
+      }
+    }
+    if (problem) {
+      res.status(400);
+      await renderAccount(req, res, { deleteerror: problem });
+      return;
+    }
+    failedPerUser.reset(keys.user);
+    await accounts.deleteAccount(con, rows[0]);
+    console.log('website: deleted the account "' + rows[0].uname + '"');
+    req.session.reset();
+    res.redirect('/login?deleted=1');
+  }
+}));
+
 app.get('/:other?/myAccount', route(async function (req, res, next) {
   if (await authorize(req.session,res,USER,{redirect:'/myAccount'},EXECUTE)){ //is logged in
     const [colors] = await con.asyncQuery('SELECT * FROM colors');
@@ -918,7 +958,8 @@ app.get('/login', function (req, res, next) {
       title: 'Login',
       layout: 'bare',
       // only ever show our own message, never text supplied in the URL
-      error: (req.query.error === LOGIN_ERROR) ? LOGIN_ERROR : undefined
+      error: (req.query.error === LOGIN_ERROR) ? LOGIN_ERROR : undefined,
+      notice: (req.query.deleted === '1') ? 'Your account has been deleted.' : undefined
    });
 });
 

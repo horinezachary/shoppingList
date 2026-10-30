@@ -63,7 +63,7 @@ curl -s -X PATCH https://lorislist.horinetech.com/api/v1/lists/12/items/345 -H "
 | --- | --- |
 | Auth | `POST /auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`, `/auth/logout-everywhere`; `GET /auth/sessions`; `DELETE /auth/sessions/{id}` |
 | Password reset | `POST /auth/password-reset` (emails a link); `GET`/`PUT /auth/password-reset/{token}` |
-| Account | `GET`/`PATCH /me`; `PUT /me/password` |
+| Account | `GET`/`PATCH`/`DELETE /me` (delete needs `{"password"}`); `PUT /me/password` |
 | Lookups | `GET /colors`; `GET /items/suggestions` |
 | Lists | `GET`/`POST /lists`; `GET`/`PATCH`/`DELETE /lists/{id}` |
 | Items | `POST /lists/{id}/items`; `DELETE /lists/{id}/items?checked=true` (clear ticked); `PATCH`/`DELETE /lists/{id}/items/{itemId}` |

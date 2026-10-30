@@ -42,6 +42,28 @@ function asyncQuery(query, values) {
   });
 }
 
+// Runs work(query) on one connection inside a transaction: committed when work
+// resolves, rolled back when it throws. query has the same shape as asyncQuery.
+async function transaction(work) {
+  const connection = await new Promise((resolve, reject) => {
+    pool.getConnection((error, c) => error ? reject(error) : resolve(c));
+  });
+  const query = (sql, values) => new Promise((resolve, reject) => {
+    connection.query(sql, values, (error, results, fields) => error ? reject(error) : resolve([results, fields]));
+  });
+  try {
+    await query('START TRANSACTION');
+    const result = await work(query);
+    await query('COMMIT');
+    return result;
+  } catch (e) {
+    await query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    connection.release();
+  }
+}
+
 module.exports = {
    start: function(cfg) {
       return start(cfg);
@@ -51,6 +73,9 @@ module.exports = {
    },
    asyncQuery: function(sql,values) {
       return asyncQuery(sql,values);
+   },
+   transaction: function(work) {
+      return transaction(work);
    }
 
 }
