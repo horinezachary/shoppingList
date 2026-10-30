@@ -18,7 +18,8 @@
 A JSON API lives under `/api/v1`. See [docs/API.md](docs/API.md) for the sign-in flow and
 [docs/openapi.yaml](docs/openapi.yaml) for every endpoint. Its table comes from
 `migrations/001_api_tokens.sql`, which `scripts/deploy.sh` applies along with any other new file in
-`migrations/` (`node scripts/migrate.js` does the same by hand).
+`migrations/` (`node scripts/migrate.js` does the same by hand). Migrations need a login that may create tables: set
+`migrationDatabase` in config.js (see exampleConfig.js) when the app's own login may not.
 
 ### Development:
    When developing, you will need to create a file named config.js (it is gitignored) based on exampleConfig.js. It holds the database credentials, the public site `url` (used to build email links and to check where POST requests come from), a `session.secret` used to sign login cookies, and the `mail` credentials used to send password-reset and list-sharing emails.

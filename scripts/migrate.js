@@ -17,16 +17,21 @@ if (!config) {
   process.exit(1);
 }
 
-const db = mysql.createConnection(Object.assign({}, config.database, { multipleStatements: true }));
+// migrationDatabase (optional) is a login allowed to change tables; the app's own login need not be.
+const dbConfig = Object.assign({}, config.database, config.migrationDatabase, { multipleStatements: true });
+const db = mysql.createConnection(dbConfig);
 const query = (sql, values) => new Promise((resolve, reject) => {
   db.query(sql, values, (e, rows) => (e ? reject(e) : resolve(rows)));
 });
 
-console.log('Migrations: database ' + config.database.user + '@' + config.database.host + '/' + config.database.database + ' (config "' + env + '")');
+console.log('Migrations: database ' + dbConfig.user + '@' + dbConfig.host + '/' + dbConfig.database + ' (config "' + env + '")');
 migrations.run({ query: query, dir: path.join(__dirname, '..', 'migrations') })
   .then(() => { db.end(); })
   .catch((e) => {
     console.log('Migrations: failed. ' + ((e && e.message) || e));
+    if (e && (e.code === 'ER_TABLEACCESS_DENIED_ERROR' || e.code === 'ER_DBACCESS_DENIED_ERROR')) {
+      console.log('Migrations: the "' + dbConfig.user + '" login may not change tables. Add a migrationDatabase login that can (see exampleConfig.js).');
+    }
     db.destroy();
     process.exit(1);
   });

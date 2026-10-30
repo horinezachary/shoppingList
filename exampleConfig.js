@@ -9,6 +9,15 @@ development: {
       password: "pass",
       database: "recipes"
     },
+    //Optional: a separate login for scripts/migrate.js (run by scripts/deploy.sh), which needs to
+    //create and change tables. Lets the app's own login above stay limited to reading and writing
+    //rows. Any field left out is taken from database above. Leave the block out to migrate with that login.
+    //  CREATE USER 'migrator'@'localhost' IDENTIFIED BY '...';
+    //  GRANT CREATE, ALTER, INDEX, SELECT, INSERT, UPDATE, DELETE ON recipes.* TO 'migrator'@'localhost';
+    //migrationDatabase: {
+    //  user: "migrator",
+    //  password: "pass"
+    //},
     //server details
     server: {
         host: '127.0.0.1',
