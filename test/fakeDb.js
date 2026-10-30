@@ -44,7 +44,7 @@ function create() {
     if (is('SELECT uname FROM User WHERE email = ?')) { return rows(state.users.filter((u) => lower(u.email) === lower(p[0]))); }
     if (is('SELECT uname FROM User WHERE uname = ?')) { return rows(state.users.filter((u) => lower(u.uname) === lower(p[0]))); }
     if (is('SELECT * FROM User WHERE email = ?') || is('SELECT DISTINCT * FROM User WHERE email = ?')) { return rows(state.users.filter((u) => lower(u.email) === lower(p[0]))); }
-    if (is('INSERT INTO User (uname,fname,lname,email,password) VALUES (?,?,?,?,?)')) {
+    if (is("INSERT INTO User (uname,fname,lname,email,password,salt,hash) VALUES (?,?,?,?,?,'','BCR')")) {
       state.users.push({ uname: p[0], fname: p[1], lname: p[2], email: p[3], password: p[4], showAlert: 1 });
       return done({ affectedRows: 1 });
     }

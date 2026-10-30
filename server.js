@@ -465,7 +465,8 @@ app.post('/register', route(async function(req, res) {
     return;
   }
   const hash = await passwords.hash(pass1);
-  await con.asyncQuery('INSERT INTO User (uname,fname,lname,email,password) VALUES (?,?,?,?,?)', [uname, fname, lname, email, hash]);
+  // salt and hash are NOT NULL without a default; fill them as the bcrypt upgrade at sign-in does
+  await con.asyncQuery("INSERT INTO User (uname,fname,lname,email,password,salt,hash) VALUES (?,?,?,?,?,'','BCR')", [uname, fname, lname, email, hash]);
   req.session.uname = uname;
   req.session.fname = fname;
   req.session.lname = lname;
