@@ -494,6 +494,21 @@ async function main() {
   });
 
   console.log('lists and items');
+  await check('creating a list returns that list, even right after another list changed', async () => {
+    const h = harness();
+    const zed = await h.member('zed');
+    const post = (name) => h.call('post', '/lists', { token: zed.token, body: { name: name, color: 'ff9900' } });
+    const food = (await post('Food')).body.list;
+    await h.call('post', '/lists/:id/items', { token: zed.token, params: { id: String(food.id) }, body: { name: 'Milk' } });
+    // last_change only has whole seconds, so an edit in the same second as the next create
+    // leaves the edited list looking at least as new as the one being created
+    h.db.state.lists.find((l) => l.list_id === food.id).last_change = h.db.state.now + 60000;
+    for (const name of ['Costco', 'Hardware']) {
+      const created = (await post(name)).body.list;
+      assert.strictEqual(created.name, name, 'got ' + created.name + ' back');
+      assert.notStrictEqual(created.id, food.id);
+    }
+  });
   await check('create, read, rename, delete a list', async () => {
     const h = harness();
     const zed = await h.member('zed');

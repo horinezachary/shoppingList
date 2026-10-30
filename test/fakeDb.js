@@ -62,8 +62,8 @@ function create() {
     // ---- lists, items, sharing ----
     if (is('SELECT * FROM ShoppingList WHERE list_id = ?')) { return rows(state.lists.filter((l) => l.list_id == p[0])); }
     if (is('SELECT * FROM ShoppingList WHERE ShoppingList.owner = ?')) { return rows(state.lists.filter((l) => l.owner === p[0])); }
-    if (is('SELECT * FROM ShoppingList WHERE Owner = ? ORDER BY last_change DESC')) {
-      return rows(state.lists.filter((l) => l.owner === p[0]).sort((a, b) => b.last_change - a.last_change));
+    if (is('SELECT * FROM ShoppingList WHERE Owner = ? ORDER BY list_id DESC LIMIT 1')) {
+      return rows(state.lists.filter((l) => l.owner === p[0]).sort((a, b) => b.list_id - a.list_id).slice(0, 1));
     }
     if (is('SELECT * FROM Shared_list WHERE list_id = ? AND share_user = ?')) { return rows(state.shares.filter((s) => s.list_id == p[0] && s.share_user === p[1])); }
     if (is('SELECT * FROM Shared_list NATURAL JOIN ShoppingList WHERE share_user = ?')) {
