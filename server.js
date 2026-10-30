@@ -809,7 +809,7 @@ app.post('/:other?/addList', route(async function (req, res) {
       return;
     }
     await con.asyncQuery('CALL addList(?,?,?)', [list, user, color]);
-    let [data] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE Owner = ? ORDER BY last_change DESC', [user]);
+    let [data] = await con.asyncQuery('SELECT * FROM ShoppingList WHERE Owner = ? ORDER BY list_id DESC LIMIT 1', [user]);
     res.redirect(data.length > 0 ? '/l/'+data[0].list_id : '/home');
   }
 }));
