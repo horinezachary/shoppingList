@@ -65,9 +65,12 @@ var fs = require('fs');
 var app = express();
 var port = process.env.PORT || config.server.port;
 
+const viewHelpers = require('./lib/viewHelpers');
+
 var handlebars = exphbs.create({
     defaultLayout: 'main',
-    extname: '.handlebars'
+    extname: '.handlebars',
+    helpers: viewHelpers
 });
 
 app.engine('.handlebars', handlebars.engine);
@@ -271,6 +274,7 @@ let ViewOption = (transport, hbs) => {
       partialsDir: 'views/partials',
       layoutsDir: 'views/layouts',
       defaultLayout: 'email.handlebars',
+      helpers: viewHelpers,
     },
     viewPath: 'views/email',
     extName: '.handlebars'
