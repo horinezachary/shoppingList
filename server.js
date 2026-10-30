@@ -203,7 +203,10 @@ const api = require('./lib/api').create({
   sendMail: sendTemplateMail,
   log: console.log
 });
-app.use('/api/v1', require('./lib/apiRouter').create(express, api));
+app.use('/api/v1', require('./lib/apiRouter').create(express, api, {
+  events: require('./lib/apiEvents').create({ api: api, log: console.log }),
+  idempotency: require('./lib/idempotency').create()
+}));
 con.asyncQuery('SELECT 1 FROM ApiToken LIMIT 1').catch(function (e) {
   if (e && e.code === 'ER_NO_SUCH_TABLE') {
     console.log('API: the ApiToken table does not exist yet, so nobody can sign in to the mobile API. Run migrations/001_api_tokens.sql to create it.');

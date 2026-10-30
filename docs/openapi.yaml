@@ -19,6 +19,7 @@ tags:
   - name: Lists
   - name: Items
   - name: Sharing
+  - name: Sync
 paths:
   /:
     get:
@@ -271,6 +272,53 @@ paths:
                     type: array
                     items: { type: string }
         "401": { $ref: "#/components/responses/Error" }
+  /changes:
+    get:
+      tags: [Sync]
+      summary: A fingerprint of everything you can see
+      description: |
+        One short fingerprint (`revision`) per list you own or share, and one for the whole
+        set. It changes exactly when what you would see changes, whoever made the edit.
+        An app keeps the `revision` it last fetched for each list and fetches again only
+        the lists whose fingerprint differs; a list that is missing was deleted or is no
+        longer shared with you. This is the polling twin of `GET /events`.
+      responses:
+        "200":
+          description: The digest.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Digest" }
+        "401": { $ref: "#/components/responses/Error" }
+  /events:
+    get:
+      tags: [Sync]
+      summary: Live updates (Server-Sent Events)
+      description: |
+        Keeps the connection open and sends a message whenever the digest changes. Send
+        the bearer token as for any request. The first message arrives straight away, so
+        it also covers anything missed while the app was offline.
+
+        ```
+        retry: 5000
+
+        event: changes
+        data: {"revision":"3f2a…","lists":[{"id":12,"revision":"9c1d…"}]}
+
+        : ping
+        ```
+
+        A comment line (`: ping`) is sent about every 15 seconds. A stream lasts at most
+        ten minutes and ends with `event: bye`; open a new one. It also ends if the
+        sign-in is revoked. At most 4 streams per account (429). If a proxy delays the
+        messages, poll `GET /changes` instead.
+      responses:
+        "200":
+          description: An event stream (`text/event-stream`).
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/TooMany" }
   /lists:
     get:
       tags: [Lists]
@@ -362,6 +410,14 @@ paths:
     post:
       tags: [Items]
       summary: Add an item (owner or edit access)
+      description: |
+        Send an `Idempotency-Key` header (8 to 100 letters, digits, `-` or `_`; a UUID is
+        fine) to make a retry safe: if the same person repeats the same request with the
+        same key within 24 hours, the first answer is returned (with `Idempotent-Replay: true`)
+        and no second item is added. Use it when an add may have been sent without the answer
+        coming back, such as replaying edits made offline. It works on every write.
+      parameters:
+        - { $ref: "#/components/parameters/idempotencyKey" }
       requestBody:
         required: true
         content:
@@ -530,7 +586,24 @@ components:
       in: path
       required: true
       schema: { type: integer }
+    idempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Makes a retried write safe; see "Add an item".
+      schema: { type: string, minLength: 8, maxLength: 100 }
   schemas:
+    Digest:
+      type: object
+      properties:
+        revision: { type: string, description: Fingerprint of the whole set. }
+        lists:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              revision: { type: string, example: 9c1d4e0a7b2f3a68 }
     User:
       type: object
       properties:
@@ -553,6 +626,7 @@ components:
         - type: object
           properties:
             canEdit: { type: boolean }
+            revision: { type: string, description: The list's fingerprint, the same value `GET /changes` reports for it. }
             items:
               type: array
               items: { $ref: "#/components/schemas/Item" }

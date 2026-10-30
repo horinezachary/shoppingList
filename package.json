@@ -4,7 +4,7 @@
   "description": "Server for shoppingList",
   "main": "server.js",
   "scripts": {
-    "test": "node test/logic.js && node test/api.js && node test/appLinks.js && node test/smoke.js",
+    "test": "node test/logic.js && node test/api.js && node test/appLinks.js && node test/sync.js && node test/smoke.js",
     "start": "node server.js"
   },
   "author": "Zachary Horine",
