@@ -1,0 +1,29 @@
+<div id="deleteAccountModal" class="modal hidden fade" aria-labelledby="deleteAccountModal"
+  aria-hidden="true">
+   <div class="modal-dialog" role="document">
+      <div class="modal-content">
+         <form action="/deleteAccount" method="post">
+            <div class="modal-header">
+               <h5 class="modal-title">Delete Account</h5>
+               <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+               <p>This permanently deletes your account (<strong>{{uname}}</strong>), every list you own and everything on them, and signs you out everywhere, including the phone apps. People you shared lists with lose them too. Lists other people shared with you stay theirs.</p>
+               <p class="font-weight-bold">This can't be undone.</p>
+               <div class="input-group form-group mb-0">
+                  <div class="input-group-prepend">
+                     <span class="input-group-text"><i class="fas fa-key"></i></span>
+                  </div>
+                  <input type="password" class="form-control" name="password" placeholder="password" autocomplete="current-password" required>
+               </div>
+            </div>
+            <div class="modal-footer">
+               <button type="submit" class="btn-sm btn-danger">Delete my account</button>
+               <button type="button" data-dismiss="modal" class="btn-sm btn-dark">Cancel</button>
+            </div>
+         </form>
+      </div>
+   </div>
+</div>
