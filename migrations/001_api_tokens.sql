@@ -1,6 +1,6 @@
 -- Sign-in tokens for the JSON API (/api/v1) used by the mobile apps.
 --
--- Run once against the Lori's List database before using the API:
+-- Applied by scripts/deploy.sh (through scripts/migrate.js). By hand:
 --   mysql -u <user> -p <database> < migrations/001_api_tokens.sql
 --
 -- One row per signed-in device. Only SHA-256 hashes of the tokens are stored, so
