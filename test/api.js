@@ -116,7 +116,7 @@ async function main() {
     h.api.routes.forEach((r) => {
       assert(['get', 'post', 'put', 'patch', 'delete'].includes(r.method), r.path);
       assert(r.path.startsWith('/'), r.path);
-      assert.strictEqual(typeof r.handler, 'function', r.path);
+      assert(r.stream || typeof r.handler === 'function', r.path);
       assert.strictEqual(typeof r.auth, 'boolean', r.path);
       const key = r.method + ' ' + r.path;
       assert(!seen.has(key), 'duplicate ' + key);
@@ -607,6 +607,75 @@ async function main() {
     assert.strictEqual(h.mail.length, 20);
   });
 
+  console.log('change digest');
+  await check('GET /changes lists every visible list with a fingerprint, and a list carries the same one', async () => {
+    const h = harness();
+    const zed = await h.member('zed');
+    const id = (await h.call('post', '/lists', { token: zed.token, body: { name: 'Food', color: 'ff9900' } })).body.list.id;
+    await h.call('post', '/lists/:id/items', { token: zed.token, params: { id: String(id) }, body: { name: 'Milk', count: 2 } });
+    const digest = (await h.call('get', '/changes', { token: zed.token })).body;
+    assert.strictEqual(digest.lists.length, 1);
+    assert.strictEqual(digest.lists[0].id, id);
+    assert(/^[0-9a-f]{16}$/.test(digest.lists[0].revision));
+    assert(/^[0-9a-f]{16}$/.test(digest.revision));
+    const detail = (await h.call('get', '/lists/:id', { token: zed.token, params: { id: String(id) } })).body.list;
+    assert.strictEqual(detail.revision, digest.lists[0].revision);
+  });
+  await check('the fingerprint changes for each kind of edit and not otherwise', async () => {
+    const h = harness();
+    const zed = await h.member('zed');
+    const id = String((await h.call('post', '/lists', { token: zed.token, body: { name: 'Food', color: 'ff9900' } })).body.list.id);
+    const rev = async () => (await h.call('get', '/changes', { token: zed.token })).body;
+    const seen = [await rev()];
+    assert.deepStrictEqual(await rev(), seen[0], 'asking twice changes nothing');
+    const add = await h.call('post', '/lists/:id/items', { token: zed.token, params: { id: id }, body: { name: 'Milk' } });
+    seen.push(await rev());
+    const itemId = String(add.body.items[0].id);
+    await h.call('patch', '/lists/:id/items/:itemId', { token: zed.token, params: { id: id, itemId: itemId }, body: { checked: true } });
+    seen.push(await rev());
+    await h.call('patch', '/lists/:id', { token: zed.token, params: { id: id }, body: { name: 'Groceries' } });
+    seen.push(await rev());
+    await h.call('patch', '/lists/:id', { token: zed.token, params: { id: id }, body: { color: '3366cc' } });
+    seen.push(await rev());
+    await h.call('delete', '/lists/:id/items/:itemId', { token: zed.token, params: { id: id, itemId: itemId } });
+    seen.push(await rev());
+    const all = new Set(seen.map((d) => d.revision));
+    assert.strictEqual(all.size, seen.length, 'every edit gave a new revision');
+    await h.call('delete', '/lists/:id', { token: zed.token, params: { id: id } });
+    assert.deepStrictEqual((await rev()).lists, []);
+  });
+  await check('a change made outside the API (no timestamp moves) is still noticed', async () => {
+    const h = harness();
+    const zed = await h.member('zed');
+    const id = String((await h.call('post', '/lists', { token: zed.token, body: { name: 'Food', color: 'ff9900' } })).body.list.id);
+    const before = (await h.call('get', '/changes', { token: zed.token })).body;
+    const lastChange = h.db.state.lists[0].last_change;
+    h.db.state.items.push({ sItem_id: 99, item_id: 1099, list_id: Number(id), item_name: 'Eggs', number: null, checked: 0, owner: 'zed' });
+    assert.strictEqual(h.db.state.lists[0].last_change, lastChange);
+    const after = (await h.call('get', '/changes', { token: zed.token })).body;
+    assert.notStrictEqual(after.revision, before.revision);
+  });
+  await check('people only see their own lists, and sharing or leaving changes what they see', async () => {
+    const h = harness();
+    const zed = await h.member('zed');
+    const amy = await h.member('amy');
+    const id = String((await h.call('post', '/lists', { token: zed.token, body: { name: 'Food', color: 'ff9900' } })).body.list.id);
+    assert.deepStrictEqual((await h.call('get', '/changes', { token: amy.token })).body.lists, []);
+    h.db.state.shares.push({ list_id: Number(id), share_user: 'amy', share_perms: 'VIEW' });
+    const asViewer = (await h.call('get', '/changes', { token: amy.token })).body;
+    assert.strictEqual(asViewer.lists.length, 1);
+    const asOwner = (await h.call('get', '/changes', { token: zed.token })).body;
+    assert.notStrictEqual(asViewer.lists[0].revision, asOwner.lists[0].revision, 'the role is part of what a person sees');
+    h.db.state.shares[0].share_perms = 'EDIT';
+    assert.notStrictEqual((await h.call('get', '/changes', { token: amy.token })).body.lists[0].revision, asViewer.lists[0].revision);
+    await h.call('delete', '/lists/:id/members/me', { token: amy.token, params: { id: id } });
+    assert.deepStrictEqual((await h.call('get', '/changes', { token: amy.token })).body.lists, []);
+  });
+  await check('GET /changes needs a sign-in', async () => {
+    const h = harness();
+    assert.strictEqual((await h.call('get', '/changes')).status, 401);
+  });
+
   console.log('misc');
   await check('the root endpoint needs no sign-in', async () => {
     const h = harness();
@@ -630,4 +699,5 @@ async function main() {
   process.exit(failures === 0 ? 0 : 1);
 }
 
-main();
+if (require.main === module) { main(); }
+module.exports = { harness: harness };

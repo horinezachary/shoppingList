@@ -78,4 +78,21 @@ curl -s -X PATCH https://lorislist.horinetech.com/api/v1/lists/12/items/345 -H "
 - **Colours** are six hex digits without `#`; `#` is accepted when sending.
 - **Rate limits** answer `429` with `Retry-After` (seconds): sign-in and current-password guesses (5 per username and address, 30 per address, per 15 minutes), password reset emails (5 per address per hour), share invitations (20 per account per hour), new accounts (10 per address per hour).
 - **Emails**: password reset and share invitations are emails whose links open the website (`/share/{key}` and `/passwordReset/{token}`). Once the apps are installed they can open those links themselves, using `GET`/`POST /shares/{key}` and `GET`/`PUT /auth/password-reset/{token}`. That needs the server to vouch for the apps: set `appLinks` in `config.js` (see `exampleConfig.js`) and the server serves `/.well-known/apple-app-site-association` (iOS universal links) and `/.well-known/assetlinks.json` (Android app links). Without it the routes answer `404` and links open the website.
-- **Sync**: there is no push or live updates yet. Re-fetch `GET /lists/{id}` when the app opens or the person pulls to refresh; `lastChange` on a list says when it was last edited.
+- **Sync**: see "Keeping an app up to date" below.
+
+## Keeping an app up to date
+
+`GET /changes` returns a short fingerprint (`revision`) for every list you can see and for the whole set.
+`GET /lists/{id}` returns the same fingerprint for that list. It changes exactly when what the person sees would
+change, whoever made the edit, so an app can store the fingerprint with each cached list, ask `GET /changes`, and fetch
+only the lists that differ. A list that is missing from the answer was deleted or is no longer shared.
+
+`GET /events` is the same digest as a stream (Server-Sent Events): the first message arrives straight away
+(which also catches an app up after being offline), and a new one whenever something changes. Read it with a plain HTTP
+client and the usual bearer header; ignore lines starting with `:`; reconnect after `event: bye`, after an error, or when
+nothing (not even a `: ping`) has arrived for about 45 seconds. If a proxy holds the messages back, poll `GET /changes` every
+10 to 15 seconds instead. Streams last at most ten minutes and at most 4 are open per account.
+
+For edits made while offline, send each write with an `Idempotency-Key` header (any unique string, such as a UUID) and
+resend it until it gets an answer. If the first attempt reached the server but the answer was lost, the repeat returns the
+first answer (marked `Idempotent-Replay: true`) instead of adding the item twice.
