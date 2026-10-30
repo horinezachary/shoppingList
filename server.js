@@ -55,6 +55,7 @@ const passwords = require('./lib/passwords').create({
   log: console.log
 });
 const createLimiter = require('./lib/rateLimit').createLimiter;
+const failureKeysFor = require('./lib/rateLimit').failureKeys;
 
 var nodemailer = require('nodemailer');
 var nodemailerhbs = require('nodemailer-express-handlebars');
@@ -81,30 +82,11 @@ app.set('view engine', 'handlebars');
 // object passed to "?" into "`key` = value" pairs, and JSON request bodies can
 // contain objects.
 // ---------------------------------------------------------------------------
-function asString(v) {
-  if (typeof v === 'string') { return v; }
-  if (typeof v === 'number') { return String(v); }
-  return '';
-}
-
-// Row ids: digits only, otherwise null.
-function toId(v) {
-  var s = asString(v);
-  return /^\d{1,15}$/.test(s) ? parseInt(s, 10) : null;
-}
-
-// Optional item quantity: a positive whole number, otherwise null.
-function parseCount(v) {
-  var s = asString(v).trim();
-  if (!/^\d{1,9}$/.test(s)) { return null; }
-  var n = parseInt(s, 10);
-  return n > 0 ? n : null;
-}
-
-// List colours end up inside a style attribute, so only accept hex digits.
-function isHexColor(v) {
-  return /^[0-9a-fA-F]{3,8}$/.test(v);
-}
+const validate = require('./lib/validate');
+const asString = validate.asString;
+const toId = validate.toId;
+const parseCount = validate.parseCount;
+const isHexColor = validate.isHexColor;
 
 // Only ever redirect to a path on this site: one leading slash, no "//" or
 // "/\" (which browsers treat as a different host), no control characters.
@@ -133,24 +115,9 @@ function route(handler) {
   };
 }
 
-const isEmail = require('./lib/validate').isEmail;
-
-const MIN_PASSWORD_LENGTH = 8;
-const MAX_PASSWORD_LENGTH = 200;
-// How long a password reset link keeps working. Kept generous because the
-// date_added column may hold only a date; shorten once it is known to be a
-// full timestamp.
-const RESET_TOKEN_HOURS = 24;
-
-function passwordProblem(password) {
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    return 'Passwords must be at least ' + MIN_PASSWORD_LENGTH + ' characters long.';
-  }
-  if (password.length > MAX_PASSWORD_LENGTH) {
-    return 'That password is too long.';
-  }
-  return null;
-}
+const isEmail = validate.isEmail;
+const passwordProblem = validate.passwordProblem;
+const RESET_TOKEN_HOURS = validate.RESET_TOKEN_HOURS;
 
 // ---------------------------------------------------------------------------
 // Rate limits. req.ip is the real visitor address because Express trusts the
@@ -165,12 +132,11 @@ const failedPerIp = createLimiter({ max: 30, windowMs: FIFTEEN_MINUTES });
 // password reset emails per address, and shared-list emails per account
 const resetRequests = createLimiter({ max: 5, windowMs: ONE_HOUR });
 const shareRequests = createLimiter({ max: 20, windowMs: ONE_HOUR });
+// sign-ups through the API, per address
+const registrations = createLimiter({ max: 10, windowMs: ONE_HOUR });
 
 function failureKeys(req, uname) {
-  return {
-    user: req.ip + '|' + String(uname).toLowerCase(),
-    ip: req.ip
-  };
+  return failureKeysFor(req.ip, uname);
 }
 
 // ---------------------------------------------------------------------------
@@ -216,6 +182,34 @@ app.use(function (req, res, next) {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   next();
 });
+// The JSON API for the mobile apps (see docs/API.md). It signs requests with
+// bearer tokens instead of cookies, so it is mounted before the cookie session
+// and the browser CSRF check, which would only get in its way.
+const apiTokens = require('./lib/apiTokens').create({ con: con, log: console.log });
+const api = require('./lib/api').create({
+  con: con,
+  passwords: passwords,
+  tokens: apiTokens,
+  config: config,
+  limiters: {
+    failedPerUser: failedPerUser,
+    failedPerIp: failedPerIp,
+    resetRequests: resetRequests,
+    shareRequests: shareRequests,
+    registrations: registrations
+  },
+  failureKeys: failureKeysFor,
+  updatePassword: updatePassword,
+  sendMail: sendTemplateMail,
+  log: console.log
+});
+app.use('/api/v1', require('./lib/apiRouter').create(express, api));
+con.asyncQuery('SELECT 1 FROM ApiToken LIMIT 1').catch(function (e) {
+  if (e && e.code === 'ER_NO_SUCH_TABLE') {
+    console.log('API: the ApiToken table does not exist yet, so nobody can sign in to the mobile API. Run migrations/001_api_tokens.sql to create it.');
+  }
+});
+
 app.use(express.static('public'));
 app.use('/:url', express.static('public'));
 app.use(originCheck);
@@ -271,6 +265,23 @@ let ViewOption = (transport, hbs) => {
     viewPath: 'views/email',
     extName: '.handlebars'
   }));
+}
+
+// Send a templated email (views/email/<template>.handlebars). Failures are
+// logged, not thrown, so a mail problem never fails the request.
+function sendTemplateMail(template, to, subject, context) {
+  ViewOption(transporter, nodemailerhbs);
+  transporter.sendMail({
+    from: '"Loris-List" <noreply@horine.dev>',
+    to: to,
+    subject: subject,
+    template: template,
+    context: context
+  }, (error) => {
+    if (error) {
+      console.log(error);
+    }
+  });
 }
 
 function renderNotFound(res) {
