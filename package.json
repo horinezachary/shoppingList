@@ -4,8 +4,9 @@
   "description": "Server for shoppingList",
   "main": "server.js",
   "scripts": {
-    "test": "node test/logic.js && node test/api.js && node test/appLinks.js && node test/sync.js && node test/migrations.js && node test/smoke.js",
-    "start": "node server.js"
+    "test": "node test/logic.js && node test/api.js && node test/appLinks.js && node test/sync.js && node test/migrations.js && node test/web.js && node test/smoke.js",
+    "start": "node server.js",
+    "coverage": "c8 --reporter=text --reporter=html --include=server.js --include=\"lib/**\" npm test"
   },
   "author": "Zachary Horine",
   "license": "ISC",
@@ -29,5 +30,8 @@
   },
   "overrides": {
     "handlebars": "^4.7.10"
+  },
+  "devDependencies": {
+    "c8": "^12.0.0"
   }
 }

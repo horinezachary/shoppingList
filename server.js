@@ -1002,6 +1002,9 @@ app.use(function (err, req, res, next) {
 // Listen on the configured address (loopback by default) so the app can only be
 // reached through the Apache reverse proxy, not directly on its own port.
 var listenHost = process.env.HOST || (config.server && config.server.host) || '127.0.0.1';
-app.listen(port, listenHost, function () {
+var server = app.listen(port, listenHost, function () {
     console.log("== Server listening on", listenHost + ":" + port);
 });
+
+// For test/web.js, which starts the whole site on a spare port.
+module.exports = { app: app, server: server };
