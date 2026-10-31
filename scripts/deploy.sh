@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Updates the production server in place: pull, install, apply new database migrations, reload under pm2.
+# Updates the production server in place: pull, install, run the tests, apply new database migrations, reload under pm2.
 # Run it on the server, from anywhere:  scripts/deploy.sh
 # Set SKIP_PULL=1 to install what is already checked out, and SKIP_RELOAD=1 to stop after the install and
 # leave the pm2 reload to whatever called this. The server console's release mode fetches the branch and
@@ -14,6 +14,15 @@ if [ "${SKIP_PULL:-0}" != "1" ]; then
 fi
 
 npm ci --omit=dev
+
+# The tests run before anything changes: if one fails the deploy stops here, with the database untouched and
+# the app still running the old code. They need no database or dev packages. SKIP_TESTS=1 skips them, for
+# an emergency only.
+if [ "${SKIP_TESTS:-0}" != "1" ]; then
+  npm test
+else
+  echo "Skipping the tests (SKIP_TESTS=1)."
+fi
 
 # New files in migrations/ are applied before the new code runs. If one fails the deploy stops here, and
 # the app keeps running the old code. The database is the one in config.js for the app's NODE_ENV: taken
