@@ -1,5 +1,5 @@
 // An in-memory stand-in for the MySQL database, for tests only. It understands
-// exactly the statements lib/api.js and lib/apiTokens.js send and throws on
+// exactly the statements lib/api.js, lib/apiTokens.js and server.js send and throws on
 // anything else, so a change to the SQL that the tests do not cover shows up as
 // a failure instead of being silently ignored. Time is a fake clock.
 'use strict';
@@ -48,6 +48,20 @@ function create() {
       state.users.push({ uname: p[0], fname: p[1], lname: p[2], email: p[3], password: p[4], showAlert: 1 });
       return done({ affectedRows: 1 });
     }
+    if (is('SELECT password FROM User WHERE uname = ?')) {
+      return rows(state.users.filter((u) => lower(u.uname) === lower(p[0])).map((u) => ({ password: u.password })));
+    }
+    // the website's own statements (server.js)
+    if (is("UPDATE User SET password = ?, salt = '', hash = 'BCR' WHERE uname = ?")) {
+      const user = state.users.find((u) => u.uname === p[1]);
+      if (user) { user.password = p[0]; }
+      return done({ affectedRows: user ? 1 : 0 });
+    }
+    if (is('UPDATE User SET showAlert = FALSE WHERE uname = ?')) {
+      const user = state.users.find((u) => u.uname === p[0]);
+      if (user) { user.showAlert = 0; }
+      return done({ affectedRows: user ? 1 : 0 });
+    }
     let m = /^UPDATE User SET (.+) WHERE uname = \?$/.exec(n);
     if (m) {
       const user = state.users.find((u) => u.uname === p[p.length - 1]);
@@ -61,6 +75,8 @@ function create() {
 
     // ---- lists, items, sharing ----
     if (is('SELECT * FROM ShoppingList WHERE list_id = ?')) { return rows(state.lists.filter((l) => l.list_id == p[0])); }
+    if (is('SELECT * FROM ShoppingList WHERE ShoppingList.list_id = ?')) { return rows(state.lists.filter((l) => l.list_id == p[0])); }
+    if (is('SELECT list_name FROM ShoppingList WHERE list_id = ?')) { return rows(state.lists.filter((l) => l.list_id == p[0]).map((l) => ({ list_name: l.list_name }))); }
     if (is('SELECT * FROM ShoppingList WHERE ShoppingList.owner = ?')) { return rows(state.lists.filter((l) => l.owner === p[0])); }
     if (is('SELECT * FROM ShoppingList WHERE Owner = ? ORDER BY list_id DESC LIMIT 1')) {
       return rows(state.lists.filter((l) => l.owner === p[0]).sort((a, b) => b.list_id - a.list_id).slice(0, 1));
@@ -230,6 +246,9 @@ function create() {
         .sort((a, b) => b.last_used_at - a.last_used_at)
         .map((t) => ({ token_id: t.token_id, device_name: t.device_name, created_at: t.created_at, last_used_at: new Date(t.last_used_at) })));
     }
+
+    // server.js checks for the table at startup
+    if (is('SELECT 1 FROM ApiToken LIMIT 1')) { return rows([{ 1: 1 }]); }
 
     throw new Error('fakeDb: unhandled SQL: ' + n);
   }
