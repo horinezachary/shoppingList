@@ -9,6 +9,16 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 git fetch --quiet --tags origin
+# The Oct 30 release was published by hand as v2.0.0 and is re-tagged v1.5.0 (Nov 6). Its tag must be gone first, or the
+# next release would count from it.
+if [ -n "$(git ls-remote --tags origin refs/tags/v2.0.0)" ]; then
+  echo "v2.0.0 still exists on GitHub. Delete it first:  gh release delete v2.0.0 --cleanup-tag --yes" >&2
+  exit 1
+fi
+if git rev-parse -q --verify refs/tags/v2.0.0 >/dev/null; then
+  git tag -d v2.0.0 >/dev/null
+  echo "Removed your local copy of the old v2.0.0 tag."
+fi
 list=$(sed -n "/releases='/,/^ *'$/p" .github/workflows/backfill-releases.yml | sed "1d;\$d;s/^ *//" | grep '|')
 made=()
 while IFS='|' read -r tag commit title; do

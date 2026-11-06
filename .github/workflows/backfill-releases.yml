@@ -30,10 +30,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # tag | merge commit on master | title
-          # v1.0.0, v1.1.0, v1.2.0, v1.2.1 and v2.0.0 are the releases Zac published by hand. Their tags and releases
-          # already exist and are left alone; they are listed so the notes of the release after each start from it.
-          # Every merge (or run of direct pushes) between two of them is a patch release of its own, and the minor
-          # releases in October 2026 mark the mobile API and the privacy and account deletion work.
+          # v1.0.0, v1.1.0, v1.2.0 and v1.2.1 are releases Zac published by hand. Their tags and releases already exist
+          # and are left alone; they are listed so the notes of the release after each start from it. Every merge (or run
+          # of direct pushes) between two of them is a patch release of its own, and the minor releases in October 2026
+          # mark the mobile API, the privacy and account deletion work, and the Oct 30 production release. That last one
+          # was published by hand as v2.0.0 and is re-tagged v1.5.0 (Zac, Nov 6): delete the v2.0.0 release and tag first.
+          # None of these is marked latest: the release made by merging this workflow's PR is newer.
           releases='
           v1.0.0|0c9aba3|Initial production release
           v1.0.1|8c40483|Development (#5)
@@ -68,9 +70,8 @@ jobs:
           v1.4.5|7497729|Return the list just created, not the most recently changed one (#35)
           v1.4.6|c0d5fae|Add website tests for server.js, a coverage report and CI (#36)
           v1.4.7|deab0f7|Bump body-parser from 1.20.8 to 1.20.9 (#24)
-          v2.0.0|e6ee850|Production Release v2.0.0
+          v1.5.0|e6ee850|Production release: mobile app API, privacy and account deletion
           '
-          latest=$(echo "$releases" | sed '/^ *$/d' | tail -n1 | cut -d'|' -f1 | xargs)
           previous=""
           while IFS='|' read -r tag commit title; do
             tag=$(echo "$tag" | xargs)
@@ -88,9 +89,8 @@ jobs:
                 tag -a "$tag" "$sha" -m "$tag: $title"
               git push origin "refs/tags/$tag"
             fi
-            args=(--title "$tag: $title" --generate-notes --verify-tag)
+            args=(--title "$tag: $title" --generate-notes --verify-tag --latest=false)
             [ -n "$previous" ] && args+=(--notes-start-tag "$previous")
-            if [ "$tag" = "$latest" ]; then args+=(--latest); else args+=(--latest=false); fi
             gh release create "$tag" "${args[@]}"
             previous="$tag"
           done <<< "$releases"
