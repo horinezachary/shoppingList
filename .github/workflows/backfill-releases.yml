@@ -1,0 +1,96 @@
+name: Backfill releases
+
+# One-off: tags the releases that happened before automatic releases existed and publishes a GitHub release for each.
+# Run it once from the Actions tab after this is merged; it skips any tag that already has a release, so running it
+# again does nothing. Safe to delete afterwards.
+#
+# First push the tags from your own computer with scripts/backfill-tags.sh: GitHub refuses to let this job's token create a
+# tag on a commit whose workflow files differ from master's ("without `workflows` permission"). Then run this, which makes
+# the release for every tag that has none (and tries to make any tag still missing).
+#
+# The releases are made with this job's own token, and GitHub does not start other workflows for that, so none of them
+# starts CI or a deploy: nothing is deployed.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tag and publish the earlier releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # tag | merge commit on master | title
+          # v1.0.0, v1.1.0, v1.2.0, v1.2.1 and v2.0.0 are the releases Zac published by hand. Their tags and releases
+          # already exist and are left alone; they are listed so the notes of the release after each start from it.
+          # Every merge (or run of direct pushes) between two of them is a patch release of its own, and the minor
+          # releases in October 2026 mark the mobile API and the privacy and account deletion work.
+          releases='
+          v1.0.0|0c9aba3|Initial production release
+          v1.0.1|8c40483|Development (#5)
+          v1.0.2|607bb3f|Update development SQL access (#6)
+          v1.0.3|8fa9671|Home page button label and copyright year
+          v1.0.4|ac85c46|Fix deleting an item from a list
+          v1.0.5|59a14a3|SQL update (#8)
+          v1.1.0|71d08dd|bcrypt password hashing
+          v1.1.1|0891277|Update dependencies
+          v1.1.2|8b1778c|List colors and async database queries
+          v1.1.3|430b165|Delete package-lock.json (#13)
+          v1.2.0|46bb73e|Shared lists
+          v1.2.1|f0a2ed3|Async refactor (#16)
+          v1.2.2|6bb7181|Fixes for blank referrers, deleting items and shared list display
+          v1.2.3|1151a6c|Info pages, dependency updates and copyright
+          v1.2.4|c9185cd|Security hardening (#17)
+          v1.2.5|5e66034|Upgrade dependencies for Node 22+/24 and clear the Dependabot alerts (#18)
+          v1.2.6|46ca4e0|Fix password reset and login behind the Apache proxy (#19)
+          v1.2.7|2df08d2|Harden accounts: reset expiry, current-password check, rate limits (#20)
+          v1.2.8|5bb259b|Remove the build step from the deploy script
+          v1.3.0|bae7d6d|Add JSON API (/api/v1) for the mobile apps (#21)
+          v1.3.1|cce76a3|Serve app-link files for the iPhone and Android apps (#22)
+          v1.3.2|d557c15|App links, change feed, live event stream and replay-safe writes (#26)
+          v1.3.3|7a121cb|Add SKIP_PULL and SKIP_RELOAD modes to deploy.sh for console deploys (#27)
+          v1.3.4|2d50d09|Apply new database migrations on deploy (#28)
+          v1.3.5|6e39ffa|Show the current year in the footer copyright (#29)
+          v1.4.0|606f5f9|Add privacy policy and terms pages (#30)
+          v1.4.1|afdf070|Add account deletion (API DELETE /api/v1/me and website) (#31)
+          v1.4.2|02ccc7f|Privacy policy: describe in-app account deletion (#32)
+          v1.4.3|14e6e88|Fix sign-up failing on the salt column (#33)
+          v1.4.4|a51bf25|Fix sign-up: make the User table legacy columns nullable (#34)
+          v1.4.5|7497729|Return the list just created, not the most recently changed one (#35)
+          v1.4.6|c0d5fae|Add website tests for server.js, a coverage report and CI (#36)
+          v1.4.7|deab0f7|Bump body-parser from 1.20.8 to 1.20.9 (#24)
+          v2.0.0|e6ee850|Production Release v2.0.0
+          '
+          latest=$(echo "$releases" | sed '/^ *$/d' | tail -n1 | cut -d'|' -f1 | xargs)
+          previous=""
+          while IFS='|' read -r tag commit title; do
+            tag=$(echo "$tag" | xargs)
+            [ -z "$tag" ] && continue
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "$tag is already released, skipping"
+              previous="$tag"
+              continue
+            fi
+            if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+              sha=$(git rev-parse "$commit^{commit}")
+              # Back-dated: the tag carries the date of the merge, not today's.
+              date=$(git show -s --format=%cI "$sha")
+              GIT_COMMITTER_DATE="$date" git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+                tag -a "$tag" "$sha" -m "$tag: $title"
+              git push origin "refs/tags/$tag"
+            fi
+            args=(--title "$tag: $title" --generate-notes --verify-tag)
+            [ -n "$previous" ] && args+=(--notes-start-tag "$previous")
+            if [ "$tag" = "$latest" ]; then args+=(--latest); else args+=(--latest=false); fi
+            gh release create "$tag" "${args[@]}"
+            previous="$tag"
+          done <<< "$releases"

@@ -201,6 +201,8 @@ async function main() {
       assert(/<html/i.test(r.text), url + ' is not a page');
     }
     assert(/October 30, 2026/.test((await b.get('/privacy')).text), 'the privacy policy shows its date');
+    const version = require('../lib/version').appVersion();
+    assert((await b.get('/login')).text.includes('| ' + version + '</div>'), 'the footer shows the version');
   });
   await check('unknown pages are a 404 page', async () => {
     const r = await browser().get('/no/such/page');
@@ -711,6 +713,7 @@ async function main() {
     const root = await b.get('/api/v1/');
     assert.strictEqual(root.status, 200);
     assert.strictEqual(root.json.version, 1);
+    assert.strictEqual(root.json.appVersion, require('../lib/version').appVersion());
     assert.strictEqual(root.headers.get('cache-control'), 'no-store');
     assert.strictEqual(root.headers.get('x-frame-options'), 'SAMEORIGIN');
     const missing = await b.get('/api/v1/nope');

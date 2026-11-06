@@ -12,6 +12,11 @@ if [ "${SKIP_PULL:-0}" != "1" ]; then
   git fetch origin
   git pull
 fi
+# The page footer and GET /api/ show the release this checkout is on (scripts/app-version.sh, from the tags), so make
+# sure the tags are here, also in the console's release mode (SKIP_PULL=1). Not fatal: without them the version is
+# worked out from the last tag this checkout has.
+git fetch --tags --quiet origin 2>/dev/null || echo "Could not fetch the release tags; the version shown may be off." >&2
+echo "Deploying $(bash scripts/app-version.sh 2>/dev/null || git describe --tags --always)."
 
 npm ci --omit=dev
 
