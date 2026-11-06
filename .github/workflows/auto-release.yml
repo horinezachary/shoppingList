@@ -1,0 +1,65 @@
+name: Auto release
+
+# Every merge to master gets the next version as a tag on the merge commit and a GitHub release with notes made from the
+# pull requests since the last one. How big the bump is comes from the commit messages and PR titles since the last
+# release (see .github/scripts/next-version.sh): "feat:" is a minor bump, "!:" or "BREAKING CHANGE" a major one, and
+# anything else a patch. Put "[skip release]" in a PR's title (or a commit message) to merge without a release, e.g. for
+# changes to CI or the docs only.
+#
+# This is the same setup as Lodgemaster Email Tools and the server console. Nothing is committed back: the tag is the
+# version, and package.json's "version" is not used. The site works it out from the tags when it starts
+# (scripts/app-version.sh, lib/version.js) and shows it in the page footer and at GET /api/. The server console reads
+# the same tags to show the version on its dashboard.
+#
+# The tag and release are made with this job's own token, and GitHub starts no other workflows for that, so nothing is
+# deployed by it. Production is still deployed from the server console as before.
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+# One release at a time, in the order the merges landed.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ !contains(github.event.head_commit.message, '[skip release]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Work out the next version
+        id: version
+        run: |
+          if git tag --points-at HEAD | grep -q '^v'; then
+            echo "This commit is already released as $(git tag --points-at HEAD | grep '^v' | head -n1)."
+            echo "next=" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          last_tag=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+          if [ -z "$last_tag" ]; then
+            echo "::error::There is no v* tag yet. Run scripts/backfill-tags.sh and the Backfill releases workflow once, then re-run this one."
+            exit 1
+          fi
+          next=$(.github/scripts/next-version.sh "${last_tag#v}" "$last_tag..HEAD")
+          echo "Releasing ${last_tag#v} -> $next (changes in $last_tag..HEAD)"
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "previous=$last_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Tag and publish the release
+        if: steps.version.outputs.next != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.version.outputs.next }}
+          PREVIOUS: ${{ steps.version.outputs.previous }}
+        run: |
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            tag -a "$TAG" "$GITHUB_SHA" -m "$TAG"
+          git push origin "refs/tags/$TAG"
+          gh release create "$TAG" --title "$TAG" --generate-notes --notes-start-tag "$PREVIOUS" --verify-tag --latest

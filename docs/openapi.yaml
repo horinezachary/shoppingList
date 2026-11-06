@@ -34,7 +34,8 @@ paths:
                 type: object
                 properties:
                   name: { type: string }
-                  version: { type: integer, example: 1 }
+                  version: { type: integer, example: 1, description: The API version (the /api/v1 contract). }
+                  appVersion: { type: string, example: v2.1.0, description: "The release of the site that is answering, from its release tags (development outside a git checkout)." }
   /auth/login:
     post:
       tags: [Auth]
